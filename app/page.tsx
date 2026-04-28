@@ -1,0 +1,110 @@
+import Link from "next/link";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { EventCard } from "@/components/event-card";
+import { EventFilters } from "@/components/event-filters";
+import { EmptyState } from "@/components/empty-state";
+import { EventMap } from "@/components/event-map";
+import { getCurrentUserId } from "@/lib/auth";
+import { getEvents, getSavedEventIds } from "@/lib/data";
+import { hasSavedEventsConfig, hasSupabaseConfig } from "@/lib/env";
+import type { EventFilters as Filters } from "@/types/event";
+
+type Props = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function Home({ searchParams }: Props) {
+  const params = await searchParams;
+  const filters: Filters = {
+    page: Number(params.page ?? 1),
+    q: typeof params.q === "string" ? params.q : undefined,
+    category: typeof params.category === "string" ? params.category : undefined,
+    dateFrom: typeof params.dateFrom === "string" ? params.dateFrom : undefined,
+    dateTo: typeof params.dateTo === "string" ? params.dateTo : undefined
+  };
+
+  const [{ events, page, total, pageSize }, userId] = await Promise.all([getEvents(filters), getCurrentUserId()]);
+  const savedIds = await getSavedEventIds(userId);
+  const canSave = hasSavedEventsConfig();
+  const totalPages = Math.max(Math.ceil(total / pageSize), 1);
+
+  function pageHref(nextPage: number) {
+    const next = new URLSearchParams();
+    if (filters.q) next.set("q", filters.q);
+    if (filters.category) next.set("category", filters.category);
+    if (filters.dateFrom) next.set("dateFrom", filters.dateFrom);
+    if (filters.dateTo) next.set("dateTo", filters.dateTo);
+    next.set("page", String(nextPage));
+    return `/?${next.toString()}`;
+  }
+
+  return (
+    <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <section className="mb-6 grid gap-4 lg:grid-cols-[minmax(0,1.8fr)_minmax(320px,1fr)] lg:items-end">
+        <div>
+          <h1 className="text-3xl font-semibold text-slate-950">What&apos;s happening on campus</h1>
+          <p className="mt-2 max-w-3xl text-base text-slate-600">
+            Browse UChicago events by keyword, date, and category, then switch to the map to see what is near you.
+          </p>
+        </div>
+        {!hasSupabaseConfig() ? (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            Supabase env vars are missing. The UI is ready, but data ingestion and persistence are disabled until configured.
+          </div>
+        ) : null}
+      </section>
+
+      <EventFilters />
+
+      <section className="mt-6 grid gap-6 xl:grid-cols-[minmax(540px,1.45fr)_minmax(360px,0.85fr)]">
+        <div className="order-2 space-y-4 xl:order-2">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-950">Upcoming events</h2>
+              <p className="text-sm text-slate-600">{total} matching events</p>
+            </div>
+          </div>
+
+          {events.length ? (
+            events.map((event) => (
+              <EventCard key={event.id} event={event} isSaved={savedIds.has(event.id)} canSave={canSave} />
+            ))
+          ) : (
+            <EmptyState
+              title="No events match these filters"
+              description="Adjust the date range or keyword filters, or run the ingestion endpoint after configuring Supabase."
+            />
+          )}
+
+          <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3">
+            <div className="text-sm text-slate-600">
+              Page {page} of {totalPages}
+            </div>
+            <div className="flex gap-2">
+              <Link
+                href={page > 1 ? pageHref(page - 1) : "#"}
+                aria-disabled={page <= 1}
+                className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-300 px-3 text-sm text-slate-700 aria-disabled:pointer-events-none aria-disabled:opacity-40"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Previous
+              </Link>
+              <Link
+                href={page < totalPages ? pageHref(page + 1) : "#"}
+                aria-disabled={page >= totalPages}
+                className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-300 px-3 text-sm text-slate-700 aria-disabled:pointer-events-none aria-disabled:opacity-40"
+              >
+                Next
+                <ChevronRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        <div className="order-1 xl:sticky xl:top-6 xl:self-start">
+          <EventMap events={events} />
+        </div>
+      </section>
+    </main>
+  );
+}
