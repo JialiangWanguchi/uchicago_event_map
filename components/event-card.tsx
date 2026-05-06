@@ -20,8 +20,8 @@ export function EventCard({ event, isSaved, canSave = false, selected = false, o
       id={`event-card-${event.id}`}
       onClick={onSelect}
       className={cn(
-        "rounded-lg border bg-white p-5 shadow-panel transition",
-        selected ? "border-brand-500 bg-brand-50 ring-2 ring-brand-100" : "border-slate-200"
+        "rounded-lg border p-5 shadow-panel transition",
+        selected ? "border-amber-400 bg-amber-100 ring-2 ring-amber-200" : "border-slate-200 bg-white"
       )}
     >
       <div className="flex items-start justify-between gap-4">
