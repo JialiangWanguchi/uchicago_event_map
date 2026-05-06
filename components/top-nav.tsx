@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CalendarDays, MapPinned } from "lucide-react";
 import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
+import { endOfWeek, format, startOfWeek } from "date-fns";
 import { hasClerkConfig } from "@/lib/env";
 import { cn } from "@/lib/utils";
 
@@ -10,6 +11,11 @@ const links = [
 ];
 
 export function TopNav() {
+  const today = new Date();
+  const weekStart = format(startOfWeek(today, { weekStartsOn: 0 }), "yyyy-MM-dd");
+  const weekEnd = format(endOfWeek(today, { weekStartsOn: 0 }), "yyyy-MM-dd");
+  const thisWeekHref = `/?dateFrom=${weekStart}&dateTo=${weekEnd}`;
+
   return (
     <header className="border-b border-slate-200 bg-white/95 backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-4 py-4 sm:px-6 lg:px-8">
@@ -38,10 +44,13 @@ export function TopNav() {
         </nav>
 
         <div className="flex items-center gap-3">
-          <div className="hidden items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-600 sm:flex">
+          <Link
+            href={thisWeekHref}
+            className="hidden items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-600 transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700 sm:flex"
+          >
             <CalendarDays className="h-4 w-4" />
             This week on campus
-          </div>
+          </Link>
           {hasClerkConfig() ? (
             <>
               <SignedOut>

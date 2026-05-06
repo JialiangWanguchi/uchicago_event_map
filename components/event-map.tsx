@@ -3,6 +3,12 @@
 import dynamic from "next/dynamic";
 import type { EventRecord } from "@/types/event";
 
+type Props = {
+  events: EventRecord[];
+  selectedEventId?: string | null;
+  onEventSelect?: (eventId: string) => void;
+};
+
 const EventMapClient = dynamic(() => import("@/components/event-map-client"), {
   ssr: false,
   loading: () => (
@@ -16,6 +22,6 @@ const EventMapClient = dynamic(() => import("@/components/event-map-client"), {
   )
 });
 
-export function EventMap({ events }: { events: EventRecord[] }) {
-  return <EventMapClient events={events} />;
+export function EventMap({ events, selectedEventId, onEventSelect }: Props) {
+  return <EventMapClient events={events} selectedEventId={selectedEventId} onEventSelect={onEventSelect} />;
 }

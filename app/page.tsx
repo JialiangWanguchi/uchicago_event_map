@@ -1,9 +1,5 @@
-import Link from "next/link";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { EventCard } from "@/components/event-card";
+import { EventExplorer } from "@/components/event-explorer";
 import { EventFilters } from "@/components/event-filters";
-import { EmptyState } from "@/components/empty-state";
-import { EventMap } from "@/components/event-map";
 import { getCurrentUserId } from "@/lib/auth";
 import { getEvents, getSavedEventIds } from "@/lib/data";
 import { hasSavedEventsConfig, hasSupabaseConfig } from "@/lib/env";
@@ -28,16 +24,6 @@ export default async function Home({ searchParams }: Props) {
   const canSave = hasSavedEventsConfig();
   const totalPages = Math.max(Math.ceil(total / pageSize), 1);
 
-  function pageHref(nextPage: number) {
-    const next = new URLSearchParams();
-    if (filters.q) next.set("q", filters.q);
-    if (filters.category) next.set("category", filters.category);
-    if (filters.dateFrom) next.set("dateFrom", filters.dateFrom);
-    if (filters.dateTo) next.set("dateTo", filters.dateTo);
-    next.set("page", String(nextPage));
-    return `/?${next.toString()}`;
-  }
-
   return (
     <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <section className="mb-6 grid gap-4 lg:grid-cols-[minmax(0,1.8fr)_minmax(320px,1fr)] lg:items-end">
@@ -56,55 +42,15 @@ export default async function Home({ searchParams }: Props) {
 
       <EventFilters />
 
-      <section className="mt-6 grid gap-6 xl:grid-cols-[minmax(540px,1.45fr)_minmax(360px,0.85fr)]">
-        <div className="order-2 space-y-4 xl:order-2">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-slate-950">Upcoming events</h2>
-              <p className="text-sm text-slate-600">{total} matching events</p>
-            </div>
-          </div>
-
-          {events.length ? (
-            events.map((event) => (
-              <EventCard key={event.id} event={event} isSaved={savedIds.has(event.id)} canSave={canSave} />
-            ))
-          ) : (
-            <EmptyState
-              title="No events match these filters"
-              description="Adjust the date range or keyword filters, or run the ingestion endpoint after configuring Supabase."
-            />
-          )}
-
-          <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3">
-            <div className="text-sm text-slate-600">
-              Page {page} of {totalPages}
-            </div>
-            <div className="flex gap-2">
-              <Link
-                href={page > 1 ? pageHref(page - 1) : "#"}
-                aria-disabled={page <= 1}
-                className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-300 px-3 text-sm text-slate-700 aria-disabled:pointer-events-none aria-disabled:opacity-40"
-              >
-                <ChevronLeft className="h-4 w-4" />
-                Previous
-              </Link>
-              <Link
-                href={page < totalPages ? pageHref(page + 1) : "#"}
-                aria-disabled={page >= totalPages}
-                className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-300 px-3 text-sm text-slate-700 aria-disabled:pointer-events-none aria-disabled:opacity-40"
-              >
-                Next
-                <ChevronRight className="h-4 w-4" />
-              </Link>
-            </div>
-          </div>
-        </div>
-
-        <div className="order-1 xl:sticky xl:top-6 xl:self-start">
-          <EventMap events={events} />
-        </div>
-      </section>
+      <EventExplorer
+        events={events}
+        savedEventIds={Array.from(savedIds)}
+        canSave={canSave}
+        filters={filters}
+        total={total}
+        page={page}
+        totalPages={totalPages}
+      />
     </main>
   );
 }

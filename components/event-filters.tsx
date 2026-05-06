@@ -159,21 +159,24 @@ export function EventFilters() {
 
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-panel">
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_minmax(0,1.2fr)_minmax(0,1fr)]">
-        <label className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input
-            type="search"
-            defaultValue={searchParams.get("q") ?? ""}
-            placeholder="Search talks, workshops, venues"
-            className="h-11 w-full rounded-md border border-slate-300 bg-white pl-10 pr-3 text-sm text-slate-950 outline-none transition focus:border-brand-500"
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                updateParam("q", (event.target as HTMLInputElement).value);
-              }
-            }}
-            onBlur={(event) => updateParam("q", event.target.value)}
-          />
+      <div className="grid items-end gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_minmax(0,1.2fr)_minmax(0,1fr)]">
+        <label>
+          <div className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">Search</div>
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              type="search"
+              defaultValue={searchParams.get("q") ?? ""}
+              placeholder="Search talks, workshops, venues"
+              className="h-11 w-full rounded-md border border-slate-300 bg-white pl-10 pr-3 text-sm text-slate-950 outline-none transition focus:border-brand-500"
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  updateParam("q", (event.target as HTMLInputElement).value);
+                }
+              }}
+              onBlur={(event) => updateParam("q", event.target.value)}
+            />
+          </div>
         </label>
 
         <CalendarField

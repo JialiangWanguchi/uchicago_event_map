@@ -1,6 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import { ArrowUpRight, MapPin, Tag } from "lucide-react";
-import { formatEventDate } from "@/lib/utils";
+import { cn, formatEventDate } from "@/lib/utils";
 import { SaveButton } from "@/components/save-button";
 import type { EventRecord } from "@/types/event";
 
@@ -8,11 +10,20 @@ type Props = {
   event: EventRecord;
   isSaved: boolean;
   canSave?: boolean;
+  selected?: boolean;
+  onSelect?: () => void;
 };
 
-export function EventCard({ event, isSaved, canSave = false }: Props) {
+export function EventCard({ event, isSaved, canSave = false, selected = false, onSelect }: Props) {
   return (
-    <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-panel">
+    <article
+      id={`event-card-${event.id}`}
+      onClick={onSelect}
+      className={cn(
+        "rounded-lg border bg-white p-5 shadow-panel transition",
+        selected ? "border-brand-500 bg-brand-50 ring-2 ring-brand-100" : "border-slate-200"
+      )}
+    >
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-500">
