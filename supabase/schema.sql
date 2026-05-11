@@ -1,4 +1,5 @@
 create extension if not exists pgcrypto;
+create extension if not exists vector;
 
 create table if not exists public.events (
   id text primary key,
@@ -22,6 +23,43 @@ create table if not exists public.events (
   source_updated_at timestamptz,
   imported_at timestamptz not null default now()
 );
+
+alter table public.events add column if not exists embedding vector(1536);
+
+create or replace function match_events(
+  query_embedding vector(1536),
+  match_threshold float,
+  match_count int,
+  exclude_id text default null
+)
+returns table (
+  id text,
+  slug text,
+  title text,
+  start_at timestamptz,
+  end_at timestamptz,
+  venue_name text,
+  location_text text,
+  similarity float
+)
+language sql stable
+as $$
+  select
+    events.id,
+    events.slug,
+    events.title,
+    events.start_at,
+    events.end_at,
+    events.venue_name,
+    events.location_text,
+    1 - (events.embedding <=> query_embedding) as similarity
+  from events
+  where 1 - (events.embedding <=> query_embedding) > match_threshold
+    and (exclude_id is null or events.id != exclude_id)
+  order by events.embedding <=> query_embedding
+  limit match_count;
+$$;
+
 
 create index if not exists events_start_at_idx on public.events (start_at);
 create index if not exists events_slug_idx on public.events (slug);

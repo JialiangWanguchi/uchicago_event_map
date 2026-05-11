@@ -3,7 +3,7 @@ import { ArrowLeft, ArrowUpRight, MapPin } from "lucide-react";
 import { notFound } from "next/navigation";
 import { SaveButton } from "@/components/save-button";
 import { getCurrentUserId } from "@/lib/auth";
-import { getEventBySlug, getSavedEventIds } from "@/lib/data";
+import { getEventBySlug, getSavedEventIds, getSimilarEvents } from "@/lib/data";
 import { hasSavedEventsConfig } from "@/lib/env";
 import { formatEventDate, stripHtml } from "@/lib/utils";
 
@@ -22,6 +22,9 @@ export default async function EventDetailPage({ params }: Props) {
   const userId = await getCurrentUserId();
   const savedIds = await getSavedEventIds(userId);
   const canSave = hasSavedEventsConfig();
+  
+  // Fetch AI recommended similar events
+  const similarEvents = await getSimilarEvents(event.id);
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
@@ -68,6 +71,21 @@ export default async function EventDetailPage({ params }: Props) {
           </div>
         ) : (
           <p className="mt-8 text-sm text-slate-600">No detailed description was provided in the upstream feed.</p>
+        )}
+
+        {similarEvents.length > 0 && (
+          <div className="mt-12 border-t border-slate-200 pt-8">
+            <h2 className="text-lg font-semibold text-slate-950 mb-4">You might also like...</h2>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {similarEvents.map((simEvent) => (
+                <Link key={simEvent.id} href={`/events/${simEvent.slug}`} className="group block rounded-lg border border-slate-200 bg-slate-50 p-4 transition-colors hover:border-brand-500 hover:bg-brand-50">
+                  <h3 className="font-semibold text-slate-900 group-hover:text-brand-600 line-clamp-2">{simEvent.title}</h3>
+                  <p className="mt-1 text-xs text-slate-600">{formatEventDate(simEvent.start_at, simEvent.end_at)}</p>
+                  <p className="mt-1 text-xs text-slate-500">{simEvent.location_text ?? simEvent.venue_name ?? "Location TBD"}</p>
+                </Link>
+              ))}
+            </div>
+          </div>
         )}
       </article>
     </main>

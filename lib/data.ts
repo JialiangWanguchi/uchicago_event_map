@@ -143,13 +143,26 @@ export async function ingestEvents({ pages = 3 }: { pages?: number } = {}) {
     throw new Error("Missing Supabase admin configuration.");
   }
 
+  // We need to dynamically import ai module so it doesn't break if env vars are missing at build time
+  const { generateEmbedding } = await import("@/lib/ai");
+
   const client = createAdminSupabaseClient() as any;
   const normalized = [];
 
   for (let page = 1; page <= pages; page += 1) {
     const response = await fetchLocalistEvents(page);
     for (const wrapper of response.events) {
-      normalized.push(await normalizeLocalistEvent(wrapper.event));
+      const eventRecord = await normalizeLocalistEvent(wrapper.event);
+      
+      // Generate embedding based on title + summary/description + categories
+      const textToEmbed = `${eventRecord.title}\n${eventRecord.summary || ""}\n${eventRecord.categories.join(", ")}`;
+      const embedding = await generateEmbedding(textToEmbed);
+      
+      if (embedding) {
+        (eventRecord as any).embedding = embedding;
+      }
+      
+      normalized.push(eventRecord);
     }
 
     if (page >= response.page.total) {
@@ -169,4 +182,30 @@ export async function ingestEvents({ pages = 3 }: { pages?: number } = {}) {
   }
 
   return { imported: normalized.length };
+}
+
+export async function getSimilarEvents(eventId: string, count = 3) {
+  if (!hasSupabaseConfig()) return [];
+
+  const client = await createServerSupabaseClient();
+  if (!client) return [];
+
+  // Get the embedding for this event
+  const { data: eventData } = await client
+    .from("events")
+    .select("embedding")
+    .eq("id", eventId)
+    .single();
+
+  if (!eventData || !(eventData as any).embedding) return [];
+
+  // Match events
+  const { data: similarEvents } = await client.rpc("match_events", {
+    query_embedding: (eventData as any).embedding,
+    match_threshold: 0.5,
+    match_count: count,
+    exclude_id: eventId
+  });
+
+  return (similarEvents || []) as EventRecord[];
 }
