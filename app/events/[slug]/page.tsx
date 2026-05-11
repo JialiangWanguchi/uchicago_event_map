@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowLeft, ArrowUpRight, MapPin } from "lucide-react";
 import { notFound } from "next/navigation";
 import { SaveButton } from "@/components/save-button";
+import { AiChat } from "@/components/ai-chat";
 import { getCurrentUserId } from "@/lib/auth";
 import { getEventBySlug, getSavedEventIds, getSimilarEvents } from "@/lib/data";
 import { hasSavedEventsConfig } from "@/lib/env";
@@ -27,7 +28,7 @@ export default async function EventDetailPage({ params }: Props) {
   const similarEvents = await getSimilarEvents(event.id);
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+    <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8 relative">
       <Link href="/" className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-950">
         <ArrowLeft className="h-4 w-4" />
         Back to events
@@ -88,6 +89,8 @@ export default async function EventDetailPage({ params }: Props) {
           </div>
         )}
       </article>
+
+      <AiChat event={event} />
     </main>
   );
 }

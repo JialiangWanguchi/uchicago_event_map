@@ -5,7 +5,6 @@ import L from "leaflet";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
-import MarkerClusterGroup from "react-leaflet-cluster";
 import { CAMPUS_CENTER } from "@/lib/constants";
 import { formatEventDate } from "@/lib/utils";
 import type { EventRecord } from "@/types/event";
@@ -66,41 +65,39 @@ export default function EventMapClient({ events, selectedEventId, onEventSelect 
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
-          <MarkerClusterGroup chunkedLoading maxClusterRadius={40}>
-            {mappableEvents.map((event) => {
-              const startMs = new Date(event.start_at).getTime();
-              const endMs = event.end_at ? new Date(event.end_at).getTime() : startMs + 3600000; // default 1 hr
-              const isHappeningNow = now >= startMs && now <= endMs;
-              const icon = createCustomIcon(event.categories, isHappeningNow);
+          {mappableEvents.map((event) => {
+            const startMs = new Date(event.start_at).getTime();
+            const endMs = event.end_at ? new Date(event.end_at).getTime() : startMs + 3600000; // default 1 hr
+            const isHappeningNow = now >= startMs && now <= endMs;
+            const icon = createCustomIcon(event.categories, isHappeningNow);
 
-              return (
-                <Marker
-                  key={event.id}
-                  position={[event.latitude!, event.longitude!]}
-                  icon={icon}
-                  eventHandlers={{
-                    click: () => onEventSelect?.(event.id)
-                  }}
-                  zIndexOffset={isHappeningNow ? 1000 : 0}
-                >
-                  <Popup>
-                    <div className="space-y-2">
-                      <div className="text-sm font-semibold text-slate-950">
-                        {isHappeningNow && <span className="text-red-500 mr-1 font-bold">LIVE:</span>}
-                        {selectedEventId === event.id && !isHappeningNow ? "Selected: " : ""}
-                        {event.title}
-                      </div>
-                      <div className="text-xs text-slate-600">{formatEventDate(event.start_at, event.end_at)}</div>
-                      <div className="text-xs text-slate-600">{event.location_text ?? event.venue_name ?? "Location TBD"}</div>
-                      <Link href={`/events/${event.slug}`} className="text-xs font-medium text-brand-600">
-                        View details
-                      </Link>
+            return (
+              <Marker
+                key={event.id}
+                position={[event.latitude!, event.longitude!]}
+                icon={icon}
+                eventHandlers={{
+                  click: () => onEventSelect?.(event.id)
+                }}
+                zIndexOffset={isHappeningNow ? 1000 : 0}
+              >
+                <Popup>
+                  <div className="space-y-2">
+                    <div className="text-sm font-semibold text-slate-950">
+                      {isHappeningNow && <span className="text-red-500 mr-1 font-bold">LIVE:</span>}
+                      {selectedEventId === event.id && !isHappeningNow ? "Selected: " : ""}
+                      {event.title}
                     </div>
-                  </Popup>
-                </Marker>
-              );
-            })}
-          </MarkerClusterGroup>
+                    <div className="text-xs text-slate-600">{formatEventDate(event.start_at, event.end_at)}</div>
+                    <div className="text-xs text-slate-600">{event.location_text ?? event.venue_name ?? "Location TBD"}</div>
+                    <Link href={`/events/${event.slug}`} className="text-xs font-medium text-brand-600">
+                      View details
+                    </Link>
+                  </div>
+                </Popup>
+              </Marker>
+            );
+          })}
         </MapContainer>
       </div>
     </div>
