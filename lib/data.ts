@@ -200,7 +200,7 @@ export async function getSimilarEvents(eventId: string, count = 3) {
   if (!eventData || !(eventData as any).embedding) return [];
 
   // Match events
-  const { data: similarEvents } = await client.rpc("match_events", {
+  const { data: similarEvents } = await (client as any).rpc("match_events", {
     query_embedding: (eventData as any).embedding,
     match_threshold: 0.5,
     match_count: count,
