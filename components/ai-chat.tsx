@@ -2,17 +2,16 @@
 
 import { useState } from "react";
 import { MessageCircle, X, Send, Bot } from "lucide-react";
-import type { EventRecord } from "@/types/event";
 
 type Message = {
   role: "user" | "assistant";
   content: string;
 };
 
-export function AiChat({ event }: { event: EventRecord }) {
+export function AiChat() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
-    { role: "assistant", content: `Hi! I'm your AI assistant for "${event.title}". What would you like to know?` }
+    { role: "assistant", content: `Hi! I'm your UChicago Campus AI assistant. Ask me anything about finding events on campus!` }
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -32,13 +31,7 @@ export function AiChat({ event }: { event: EventRecord }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           messages: [...messages.slice(1), userMsg],
-          eventContext: {
-            title: event.title,
-            description: event.description,
-            time: `${event.start_at} to ${event.end_at || "TBD"}`,
-            location: event.location_text || event.venue_name || "TBD",
-            categories: event.categories,
-          }
+          eventContext: null
         }),
       });
 

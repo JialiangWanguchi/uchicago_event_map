@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { AppClerkProvider } from "@/components/clerk-provider";
 import { TopNav } from "@/components/top-nav";
+import { AiChat } from "@/components/ai-chat";
 
 export const metadata: Metadata = {
   title: "Campus Event Map",
@@ -13,9 +14,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en">
       <body>
         <AppClerkProvider>
-          <div className="min-h-screen bg-slate-50">
+          <div className="min-h-screen bg-slate-50 relative pb-16">
             <TopNav />
             {children}
+            <AiChat />
           </div>
         </AppClerkProvider>
       </body>

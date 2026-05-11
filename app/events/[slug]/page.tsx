@@ -2,7 +2,6 @@ import Link from "next/link";
 import { ArrowLeft, ArrowUpRight, MapPin } from "lucide-react";
 import { notFound } from "next/navigation";
 import { SaveButton } from "@/components/save-button";
-import { AiChat } from "@/components/ai-chat";
 import { getCurrentUserId } from "@/lib/auth";
 import { getEventBySlug, getSavedEventIds, getSimilarEvents } from "@/lib/data";
 import { hasSavedEventsConfig } from "@/lib/env";
@@ -89,8 +88,6 @@ export default async function EventDetailPage({ params }: Props) {
           </div>
         )}
       </article>
-
-      <AiChat event={event} />
     </main>
   );
 }

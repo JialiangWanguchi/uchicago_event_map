@@ -15,7 +15,9 @@ export async function POST(req: Request) {
 
     const systemMessage = {
       role: "system",
-      content: `You are an AI assistant for a UChicago campus event. Here are the event details:\n${JSON.stringify(eventContext)}\n\nAnswer the user's questions about this event concisely and helpfully. Keep answers short (1-3 sentences) unless asked for more details. If you don't know something based on the context, say you don't know but suggest they check the original listing.`,
+      content: eventContext 
+        ? `You are an AI assistant for a UChicago campus event. Here are the event details:\n${JSON.stringify(eventContext)}\n\nAnswer the user's questions about this event concisely and helpfully. Keep answers short (1-3 sentences) unless asked for more details. If you don't know something based on the context, say you don't know but suggest they check the original listing.`
+        : `You are an AI assistant for the UChicago Campus Event Map application. Help the user discover what to do on campus, answer general questions about UChicago, or explain how to use the app. Keep answers concise (1-3 sentences).`,
     };
 
     const response = await openai.chat.completions.create({
