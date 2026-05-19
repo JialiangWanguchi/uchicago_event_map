@@ -1,5 +1,7 @@
+import { Suspense } from "react";
 import { EventExplorer } from "@/components/event-explorer";
 import { EventFilters } from "@/components/event-filters";
+import { EventFiltersSkeleton } from "@/components/event-filters-skeleton";
 import { getCurrentUserId } from "@/lib/auth";
 import { getEvents, getMapEvents, getSavedEventIds } from "@/lib/data";
 import { hasSavedEventsConfig, hasSupabaseConfig } from "@/lib/env";
@@ -38,7 +40,9 @@ export default async function Home({ searchParams }: Props) {
         ) : null}
       </section>
 
-      <EventFilters />
+      <Suspense fallback={<EventFiltersSkeleton />}>
+        <EventFilters />
+      </Suspense>
 
       <EventExplorer
         events={events}

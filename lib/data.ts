@@ -12,6 +12,10 @@ import type { EventFilters, EventListResult, EventRecord, MapEventRecord, Semant
 
 type EventsRow = Database["public"]["Tables"]["events"]["Row"];
 
+function logDbError(context: string, error: unknown) {
+  console.error(`[campus-event-map] ${context}:`, error);
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function applyEventFilters(query: any, filters: EventFilters) {
   let q = query.gte("start_at", filters.dateFrom ?? new Date().toISOString().slice(0, 10));
@@ -31,7 +35,7 @@ function applyEventFilters(query: any, filters: EventFilters) {
 
   if (filters.happeningNow) {
     const now = new Date().toISOString();
-    q = q.lte("start_at", now).or(`end_at.is.null,end_at.gte.${now}`);
+    q = q.lte("start_at", now).or(`end_at.is.null,end_at.gte."${now}"`);
   }
 
   return q;
@@ -96,7 +100,10 @@ export async function getEvents(filters: EventFilters = {}): Promise<EventListRe
     }
 
     const { data, error } = await client.from("events").select("*").in("id", ids);
-    if (error) throw error;
+    if (error) {
+      logDbError("getEvents.semantic", error);
+      return { events: [], total: 0, page, pageSize };
+    }
 
     const rows = (data ?? []) as EventRecord[];
     const byId = new Map(rows.map((row) => [row.id, row]));
@@ -116,7 +123,10 @@ export async function getEvents(filters: EventFilters = {}): Promise<EventListRe
     let query = client.from("events").select("*");
     query = applyEventFilters(query, filters);
     const { data, error } = await query;
-    if (error) throw error;
+    if (error) {
+      logDbError("getEvents.nearMe", error);
+      return { events: [], total: 0, page, pageSize };
+    }
 
     let events = (data ?? []) as EventRecord[];
     events = applyNearMeFilters(events, filters);
@@ -137,7 +147,10 @@ export async function getEvents(filters: EventFilters = {}): Promise<EventListRe
   query = applyEventFilters(query, filters);
 
   const { data, count, error } = await query.range(from, to);
-  if (error) throw error;
+  if (error) {
+    logDbError("getEvents", error);
+    return { events: [], total: 0, page, pageSize };
+  }
 
   return {
     events: sortEventsWithLiveFirst((data ?? []) as EventRecord[]),
@@ -173,7 +186,7 @@ export async function getMapEvents(filters: EventFilters = {}): Promise<MapEvent
 
   let query = client
     .from("events")
-    .select("id, slug, title, start_at, end_at, latitude, longitude, categories, location_text, venue_name, geocode_source")
+    .select("id, slug, title, start_at, end_at, latitude, longitude, categories, location_text, venue_name")
     .not("latitude", "is", null)
     .not("longitude", "is", null)
     .order("start_at", { ascending: true })
@@ -182,7 +195,10 @@ export async function getMapEvents(filters: EventFilters = {}): Promise<MapEvent
   query = applyEventFilters(query, filters);
 
   const { data, error } = await query;
-  if (error) throw error;
+  if (error) {
+    logDbError("getMapEvents", error);
+    return [];
+  }
 
   let events = (data ?? []) as MapEventRecord[];
 
@@ -244,7 +260,8 @@ export async function searchEventsSemantic(query: string, count = 10): Promise<S
   });
 
   if (error) {
-    throw error;
+    logDbError("searchEventsSemantic", error);
+    return [];
   }
 
   return (data ?? []) as SemanticSearchResult[];
@@ -256,12 +273,18 @@ export async function getSavedEventIds(userId: string | null) {
   }
 
   const client = createAdminSupabaseClient();
-  const { data, error } = await client.from("saved_events").select("event_id").eq("user_id", userId);
-  if (error) {
-    throw error;
-  }
+  try {
+    const { data, error } = await client.from("saved_events").select("event_id").eq("user_id", userId);
+    if (error) {
+      logDbError("getSavedEventIds", error);
+      return new Set<string>();
+    }
 
-  return new Set(((data ?? []) as Database["public"]["Tables"]["saved_events"]["Row"][]).map((row) => row.event_id));
+    return new Set(((data ?? []) as Database["public"]["Tables"]["saved_events"]["Row"][]).map((row) => row.event_id));
+  } catch (error) {
+    logDbError("getSavedEventIds", error);
+    return new Set<string>();
+  }
 }
 
 export async function getSavedEvents(userId: string | null) {

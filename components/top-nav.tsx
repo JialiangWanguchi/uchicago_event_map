@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { CalendarDays, MapPinned, Radio } from "lucide-react";
-import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
 import { endOfWeek, format, startOfWeek } from "date-fns";
+import { TopNavAuth } from "@/components/top-nav-auth";
 import { hasClerkConfig } from "@/lib/env";
 const links = [
   { href: "/", label: "Explore" },
@@ -46,16 +46,7 @@ export function TopNav() {
             This week
           </Link>
           {hasClerkConfig() ? (
-            <>
-              <SignedOut>
-                <SignInButton mode="modal">
-                  <button className="rounded-md bg-slate-950 px-4 py-2 text-sm font-medium text-white">Sign in</button>
-                </SignInButton>
-              </SignedOut>
-              <SignedIn>
-                <UserButton />
-              </SignedIn>
-            </>
+            <TopNavAuth />
           ) : (
             <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">Clerk not configured</div>
           )}

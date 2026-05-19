@@ -13,7 +13,12 @@ export default function middleware(request: NextRequest, event: NextFetchEvent) 
     return NextResponse.next();
   }
 
-  return clerkHandler(request, event);
+  try {
+    return clerkHandler(request, event);
+  } catch (error) {
+    console.error("[middleware] Clerk error:", error);
+    return NextResponse.next();
+  }
 }
 
 export const config = {
