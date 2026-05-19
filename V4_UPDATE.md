@@ -38,7 +38,7 @@ V4 implements the full upgrade plan (items 1–19): smarter discovery, better ma
 - Incremental embeddings via `embed_hash` (only re-embed when content changes).
 - Nominatim rate-limited to ~1 req/sec during ingest.
 - Auto-archive events ended 30+ days ago.
-- Vercel Cron every 4 hours (`vercel.json`) + `revalidatePath` after ingest.
+- Vercel Cron once daily at 06:00 UTC (`vercel.json`; Hobby plan limit) + `revalidatePath` after ingest.
 
 ### Engineering
 - Playwright smoke tests (`npm run test:e2e`).
