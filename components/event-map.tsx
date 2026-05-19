@@ -7,6 +7,10 @@ type Props = {
   events: MapEventRecord[];
   selectedEventId?: string | null;
   onEventSelect?: (eventId: string) => void;
+  userLocation?: { lat: number; lng: number } | null;
+  nearMeActive?: boolean;
+  nearMeRadiusKm?: number;
+  centerOnUser?: boolean;
 };
 
 const EventMapClient = dynamic(() => import("@/components/event-map-client"), {
@@ -22,6 +26,6 @@ const EventMapClient = dynamic(() => import("@/components/event-map-client"), {
   )
 });
 
-export function EventMap({ events, selectedEventId, onEventSelect }: Props) {
-  return <EventMapClient events={events} selectedEventId={selectedEventId} onEventSelect={onEventSelect} />;
+export function EventMap(props: Props) {
+  return <EventMapClient {...props} />;
 }

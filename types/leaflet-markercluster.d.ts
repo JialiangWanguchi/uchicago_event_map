@@ -4,6 +4,11 @@ declare module "leaflet" {
   interface MarkerClusterGroupOptions {
     showCoverageOnHover?: boolean;
     zoomToBoundsOnClick?: boolean;
+    disableClusteringAtZoom?: number;
+    maxClusterRadius?: number;
+    spiderfyOnMaxZoom?: boolean;
+    spiderfyOnEveryZoom?: boolean;
+    animateAddingMarkers?: boolean;
   }
 
   interface MarkerClusterGroup extends LayerGroup {

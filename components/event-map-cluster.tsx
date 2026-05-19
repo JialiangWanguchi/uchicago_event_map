@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet.markercluster";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
+import { MAP_CLUSTER_DISABLE_ZOOM } from "@/lib/map-categories";
 import { formatEventDate } from "@/lib/utils";
 import type { MapEventRecord } from "@/types/event";
 
@@ -19,10 +20,26 @@ type MarkerOptions = {
 
 export function EventMapCluster({ events, selectedEventId, onEventSelect, now, createIcon }: MarkerOptions) {
   const map = useMap();
+  const markersByIdRef = useRef<Map<string, L.Marker>>(new Map());
+  const onEventSelectRef = useRef(onEventSelect);
+  onEventSelectRef.current = onEventSelect;
 
   useEffect(() => {
-    const cluster = (L as typeof L & { markerClusterGroup: () => L.MarkerClusterGroup }).markerClusterGroup();
-    const markers: L.Marker[] = [];
+    const clusterGroup = (
+      L as typeof L & {
+        markerClusterGroup: (options?: L.MarkerClusterGroupOptions) => L.MarkerClusterGroup;
+      }
+    ).markerClusterGroup({
+      disableClusteringAtZoom: MAP_CLUSTER_DISABLE_ZOOM,
+      maxClusterRadius: 50,
+      spiderfyOnMaxZoom: false,
+      spiderfyOnEveryZoom: false,
+      showCoverageOnHover: false,
+      zoomToBoundsOnClick: false,
+      animateAddingMarkers: false
+    });
+
+    markersByIdRef.current.clear();
 
     for (const event of events) {
       const startMs = new Date(event.start_at).getTime();
@@ -47,23 +64,41 @@ export function EventMapCluster({ events, selectedEventId, onEventSelect, now, c
         ].join("")
       );
 
-      marker.on("click", () => onEventSelect?.(event.id));
-      markers.push(marker);
-      cluster.addLayer(marker);
+      marker.on("click", (leafletEvent) => {
+        L.DomEvent.stopPropagation(leafletEvent);
+        onEventSelectRef.current?.(event.id);
+      });
+
+      markersByIdRef.current.set(event.id, marker);
+      clusterGroup.addLayer(marker);
     }
 
-    map.addLayer(cluster);
+    clusterGroup.on("clusterclick", (clusterEvent: L.LeafletEvent) => {
+      if (map.getZoom() >= MAP_CLUSTER_DISABLE_ZOOM) return;
+      const latlng = (clusterEvent as L.LeafletEvent & { latlng?: L.LatLng }).latlng;
+      if (!latlng) return;
+      map.setView(latlng, MAP_CLUSTER_DISABLE_ZOOM, { animate: true });
+    });
+
+    map.addLayer(clusterGroup as L.Layer);
 
     return () => {
-      map.removeLayer(cluster);
+      map.removeLayer(clusterGroup as L.Layer);
+      markersByIdRef.current.clear();
     };
-  }, [events, selectedEventId, onEventSelect, now, map, createIcon]);
+  }, [events, now, map, createIcon, selectedEventId]);
 
   useEffect(() => {
     if (!selectedEventId) return;
     const selected = events.find((event) => event.id === selectedEventId);
     if (!selected?.latitude || !selected.longitude) return;
+
     map.panTo([selected.latitude, selected.longitude], { animate: true });
+
+    const marker = markersByIdRef.current.get(selectedEventId);
+    if (marker) {
+      window.setTimeout(() => marker.openPopup(), 250);
+    }
   }, [selectedEventId, events, map]);
 
   return null;

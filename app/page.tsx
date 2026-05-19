@@ -1,6 +1,5 @@
 import { Suspense } from "react";
-import { EventExplorer } from "@/components/event-explorer";
-import { EventFilters } from "@/components/event-filters";
+import { ExploreShell } from "@/components/explore-shell";
 import { EventFiltersSkeleton } from "@/components/event-filters-skeleton";
 import { getCurrentUserId } from "@/lib/auth";
 import { getEvents, getMapEvents, getSavedEventIds } from "@/lib/data";
@@ -41,19 +40,17 @@ export default async function Home({ searchParams }: Props) {
       </section>
 
       <Suspense fallback={<EventFiltersSkeleton />}>
-        <EventFilters />
+        <ExploreShell
+          events={events}
+          mapEvents={mapEvents}
+          savedEventIds={Array.from(savedIds)}
+          canSave={canSave}
+          filters={filters}
+          total={total}
+          page={page}
+          totalPages={totalPages}
+        />
       </Suspense>
-
-      <EventExplorer
-        events={events}
-        mapEvents={mapEvents}
-        savedEventIds={Array.from(savedIds)}
-        canSave={canSave}
-        filters={filters}
-        total={total}
-        page={page}
-        totalPages={totalPages}
-      />
     </main>
   );
 }

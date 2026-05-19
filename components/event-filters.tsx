@@ -18,6 +18,7 @@ import {
   subMonths
 } from "date-fns";
 import { CATEGORY_OPTIONS } from "@/lib/constants";
+import { useMapLocation } from "@/components/map-location-context";
 import { cn } from "@/lib/utils";
 
 type DateFilterName = "dateFrom" | "dateTo";
@@ -102,7 +103,7 @@ export function EventFilters() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [searchValue, setSearchValue] = useState(searchParams.get("q") ?? "");
-  const nearMeActive = Boolean(searchParams.get("nearLat") && searchParams.get("nearLng"));
+  const { nearMeActive, setNearMeActive, userLocation, locationLoading } = useMapLocation();
 
   useEffect(() => {
     setSearchValue(searchParams.get("q") ?? "");
@@ -128,25 +129,7 @@ export function EventFilters() {
   }
 
   function toggleNearMe() {
-    if (nearMeActive) {
-      updateParams({ nearLat: undefined, nearLng: undefined, maxDistanceKm: undefined });
-      return;
-    }
-
-    if (!navigator.geolocation) return;
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        updateParams({
-          nearLat: String(position.coords.latitude),
-          nearLng: String(position.coords.longitude),
-          maxDistanceKm: "1.5"
-        });
-      },
-      () => {
-        alert("Could not access your location. Check browser permissions.");
-      }
-    );
+    setNearMeActive(!nearMeActive);
   }
 
   return (
@@ -213,13 +196,15 @@ export function EventFilters() {
         <button
           type="button"
           onClick={toggleNearMe}
+          disabled={locationLoading && !userLocation}
           className={cn(
             "inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-medium",
-            nearMeActive ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-700"
+            nearMeActive ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-700",
+            locationLoading && !userLocation && "opacity-60"
           )}
         >
           <LocateFixed className="h-4 w-4" />
-          Near me (1.5 km)
+          Near me {nearMeActive ? "(on)" : ""}
         </button>
       </div>
     </section>

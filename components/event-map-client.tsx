@@ -5,28 +5,34 @@ import L from "leaflet";
 import { useCallback, useEffect, useState } from "react";
 import { MapContainer, TileLayer } from "react-leaflet";
 import { CAMPUS_CENTER } from "@/lib/constants";
+import { getCategoryColor } from "@/lib/map-categories";
 import { EventMapCluster } from "@/components/event-map-cluster";
+import { MapLegend } from "@/components/map-legend";
+import { MapUserLayer } from "@/components/map-user-layer";
 import type { MapEventRecord } from "@/types/event";
 
 type Props = {
   events: MapEventRecord[];
   selectedEventId?: string | null;
   onEventSelect?: (eventId: string) => void;
+  userLocation?: { lat: number; lng: number } | null;
+  nearMeActive?: boolean;
+  nearMeRadiusKm?: number;
+  centerOnUser?: boolean;
 };
 
-function getCategoryColor(categories: string[]) {
-  if (categories.includes("Academic")) return "#3b82f6";
-  if (categories.includes("Arts")) return "#a855f7";
-  if (categories.includes("Athletics")) return "#f97316";
-  if (categories.includes("Social")) return "#10b981";
-  if (categories.includes("Career")) return "#0ea5e9";
-  return "#64748b";
-}
-
-export default function EventMapClient({ events, selectedEventId, onEventSelect }: Props) {
+export default function EventMapClient({
+  events,
+  selectedEventId,
+  onEventSelect,
+  userLocation = null,
+  nearMeActive = false,
+  nearMeRadiusKm = 1.5,
+  centerOnUser = false
+}: Props) {
   const mappableEvents = events.filter((event) => event.latitude && event.longitude);
   const [now, setNow] = useState(Date.now());
-  const [mapInteractive, setMapInteractive] = useState(false);
+  const mapCenter: [number, number] = userLocation ? [userLocation.lat, userLocation.lng] : CAMPUS_CENTER;
 
   useEffect(() => {
     const interval = setInterval(() => setNow(Date.now()), 60000);
@@ -57,29 +63,31 @@ export default function EventMapClient({ events, selectedEventId, onEventSelect 
       <div className="border-b border-slate-200 px-4 py-3">
         <h2 className="text-sm font-semibold text-slate-950">Campus map</h2>
         <p className="mt-1 text-sm text-slate-600">
-          Showing {mappableEvents.length} mapped events for your current filters.
+          Drag to pan, scroll to zoom. Markers split automatically when you zoom in.{" "}
+          {mappableEvents.length} events shown.
+          {userLocation ? " Your location is marked in blue." : ""}
         </p>
       </div>
-      <div className="relative h-[680px] xl:h-[760px]">
-        {!mapInteractive ? (
-          <button
-            type="button"
-            className="absolute inset-0 z-[500] flex items-center justify-center bg-slate-900/10 text-sm font-medium text-slate-800"
-            onClick={() => setMapInteractive(true)}
-          >
-            Tap to interact with map
-          </button>
-        ) : null}
+      <div className="h-[680px] xl:h-[760px]">
         <MapContainer
-          center={CAMPUS_CENTER}
+          center={mapCenter}
           zoom={15}
-          scrollWheelZoom={mapInteractive}
-          dragging={mapInteractive}
+          scrollWheelZoom
+          dragging
+          touchZoom
+          doubleClickZoom
+          zoomControl
           className="h-full w-full"
         >
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+          <MapUserLayer
+            userLocation={userLocation}
+            nearMeActive={nearMeActive}
+            radiusKm={nearMeRadiusKm}
+            centerOnUser={centerOnUser}
           />
           <EventMapCluster
             events={mappableEvents}
@@ -90,6 +98,7 @@ export default function EventMapClient({ events, selectedEventId, onEventSelect 
           />
         </MapContainer>
       </div>
+      <MapLegend />
     </div>
   );
 }

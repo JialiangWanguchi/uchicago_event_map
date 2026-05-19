@@ -6,8 +6,9 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
 import { EventCard } from "@/components/event-card";
 import { EventMap } from "@/components/event-map";
+import { mapEventToPreview } from "@/lib/event-status";
 import { formatDistanceKm } from "@/lib/geo-utils";
-import { isEventLive } from "@/lib/utils";
+import { useMapLocation } from "@/components/map-location-context";
 import type { EventFilters, EventRecord, MapEventRecord } from "@/types/event";
 
 type Props = {
@@ -23,18 +24,38 @@ type Props = {
 
 export function EventExplorer({ events, mapEvents, savedEventIds, canSave, filters, total, page, totalPages }: Props) {
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [centerOnUser, setCenterOnUser] = useState(false);
   const savedIds = useMemo(() => new Set(savedEventIds), [savedEventIds]);
   const [now, setNow] = useState(Date.now());
+  const { userLocation, nearMeActive, nearMeRadiusKm, locationLoading, locationError } = useMapLocation();
+
+  const mapEventsById = useMemo(() => new Map(mapEvents.map((event) => [event.id, event])), [mapEvents]);
+  const eventsById = useMemo(() => new Map(events.map((event) => [event.id, event])), [events]);
+
+  const selectedFromMap = selectedEventId ? mapEventsById.get(selectedEventId) : null;
+  const selectedInList = selectedEventId ? eventsById.get(selectedEventId) : null;
+  const pinnedMapEvent =
+    selectedFromMap && !selectedInList ? mapEventToPreview(selectedFromMap) : null;
 
   useEffect(() => {
-    const interval = setInterval(() => setNow(Date.now()), 60000);
+    const interval = setInterval(() => setNow(Date.now()), 30000);
     return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
     if (!selectedEventId) return;
-    document.getElementById(`event-card-${selectedEventId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, [selectedEventId]);
+    window.setTimeout(() => {
+      document.getElementById(`event-card-${selectedEventId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 100);
+  }, [selectedEventId, events, pinnedMapEvent]);
+
+  useEffect(() => {
+    if (nearMeActive && userLocation) {
+      setCenterOnUser(true);
+      const timer = window.setTimeout(() => setCenterOnUser(false), 800);
+      return () => window.clearTimeout(timer);
+    }
+  }, [nearMeActive, userLocation]);
 
   function pageHref(nextPage: number) {
     const next = new URLSearchParams();
@@ -56,37 +77,47 @@ export function EventExplorer({ events, mapEvents, savedEventIds, canSave, filte
       <div className="order-2 space-y-4 xl:order-2">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-slate-950">Upcoming events</h2>
+            <h2 className="text-lg font-semibold text-slate-950">Events</h2>
             <p className="text-sm text-slate-600">{total} matching events</p>
           </div>
         </div>
 
+        {locationLoading ? (
+          <p className="text-xs text-slate-500">Getting your location for the map…</p>
+        ) : locationError ? (
+          <p className="text-xs text-amber-700">Location unavailable: {locationError}</p>
+        ) : userLocation ? (
+          <p className="text-xs text-slate-500">Your location is shown on the map (blue dot).</p>
+        ) : null}
+
+        {pinnedMapEvent ? (
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-amber-800">Selected from map (not on this page)</p>
+            <EventCard
+              event={pinnedMapEvent}
+              isSaved={savedIds.has(pinnedMapEvent.id)}
+              canSave={canSave}
+              selected
+              onSelect={() => setSelectedEventId(pinnedMapEvent.id)}
+              now={now}
+            />
+          </div>
+        ) : null}
+
         {events.length ? (
-          events.map((event) => {
-            const live = isEventLive(event, now);
-            return (
-              <div key={event.id} className="relative">
-                {live ? (
-                  <div className="absolute -left-2 -top-2 z-10 flex items-center gap-1 rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white shadow-sm">
-                    <span className="relative flex h-2 w-2">
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" />
-                      <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
-                    </span>
-                    LIVE
-                  </div>
-                ) : null}
-                <EventCard
-                  event={event}
-                  isSaved={savedIds.has(event.id)}
-                  canSave={canSave}
-                  selected={selectedEventId === event.id}
-                  onSelect={() => setSelectedEventId(event.id)}
-                  distanceLabel={event.distance_km != null ? formatDistanceKm(event.distance_km) : undefined}
-                  endTimeUnknown={!event.end_at}
-                />
-              </div>
-            );
-          })
+          events.map((event) => (
+            <EventCard
+              key={event.id}
+              event={event}
+              isSaved={savedIds.has(event.id)}
+              canSave={canSave}
+              selected={selectedEventId === event.id}
+              onSelect={() => setSelectedEventId(event.id)}
+              distanceLabel={event.distance_km != null ? formatDistanceKm(event.distance_km) : undefined}
+              endTimeUnknown={!event.end_at}
+              now={now}
+            />
+          ))
         ) : (
           <EmptyState
             title="No events match these filters"
@@ -99,11 +130,19 @@ export function EventExplorer({ events, mapEvents, savedEventIds, canSave, filte
             Page {page} of {totalPages}
           </p>
           <div className="flex gap-2">
-            <Link href={page > 1 ? pageHref(page - 1) : "#"} aria-disabled={page <= 1} className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-300 px-3 text-sm aria-disabled:pointer-events-none aria-disabled:opacity-40">
+            <Link
+              href={page > 1 ? pageHref(page - 1) : "#"}
+              aria-disabled={page <= 1}
+              className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-300 px-3 text-sm aria-disabled:pointer-events-none aria-disabled:opacity-40"
+            >
               <ChevronLeft className="h-4 w-4" />
               Previous
             </Link>
-            <Link href={page < totalPages ? pageHref(page + 1) : "#"} aria-disabled={page >= totalPages} className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-300 px-3 text-sm aria-disabled:pointer-events-none aria-disabled:opacity-40">
+            <Link
+              href={page < totalPages ? pageHref(page + 1) : "#"}
+              aria-disabled={page >= totalPages}
+              className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-300 px-3 text-sm aria-disabled:pointer-events-none aria-disabled:opacity-40"
+            >
               Next
               <ChevronRight className="h-4 w-4" />
             </Link>
@@ -112,7 +151,15 @@ export function EventExplorer({ events, mapEvents, savedEventIds, canSave, filte
       </div>
 
       <div className="order-1 xl:sticky xl:top-6 xl:self-start">
-        <EventMap events={mapEvents} selectedEventId={selectedEventId} onEventSelect={setSelectedEventId} />
+        <EventMap
+          events={mapEvents}
+          selectedEventId={selectedEventId}
+          onEventSelect={setSelectedEventId}
+          userLocation={userLocation}
+          nearMeActive={nearMeActive}
+          nearMeRadiusKm={nearMeRadiusKm}
+          centerOnUser={centerOnUser}
+        />
       </div>
     </section>
   );
