@@ -2,6 +2,9 @@ export const CAMPUS_CENTER: [number, number] = [41.7897, -87.5997];
 
 export const DEFAULT_PAGE_SIZE = 12;
 
+/** Max events loaded for the explore list (no pagination). */
+export const LIST_EVENTS_LIMIT = 500;
+
 export const ARCHIVE_DAYS_AFTER_END = 30;
 
 export const CATEGORY_OPTIONS = [

@@ -9,6 +9,7 @@ import { getCategoryColor } from "@/lib/map-categories";
 import { EventMapCluster } from "@/components/event-map-cluster";
 import { MapLegend } from "@/components/map-legend";
 import { MapUserLayer } from "@/components/map-user-layer";
+import { cn } from "@/lib/utils";
 import type { MapEventRecord } from "@/types/event";
 
 type Props = {
@@ -19,6 +20,7 @@ type Props = {
   nearMeActive?: boolean;
   nearMeRadiusKm?: number;
   centerOnUser?: boolean;
+  className?: string;
 };
 
 export default function EventMapClient({
@@ -27,8 +29,9 @@ export default function EventMapClient({
   onEventSelect,
   userLocation = null,
   nearMeActive = false,
-  nearMeRadiusKm = 1.5,
-  centerOnUser = false
+  nearMeRadiusKm = 1,
+  centerOnUser = false,
+  className
 }: Props) {
   const mappableEvents = events.filter((event) => event.latitude && event.longitude);
   const [now, setNow] = useState(Date.now());
@@ -59,8 +62,8 @@ export default function EventMapClient({
   }, []);
 
   return (
-    <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-panel">
-      <div className="border-b border-slate-200 px-4 py-3">
+    <div className={cn("flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-panel", className)}>
+      <div className="shrink-0 border-b border-slate-200 px-4 py-3">
         <h2 className="text-sm font-semibold text-slate-950">Campus map</h2>
         <p className="mt-1 text-sm text-slate-600">
           Drag to pan, scroll to zoom. Markers split automatically when you zoom in.{" "}
@@ -68,7 +71,7 @@ export default function EventMapClient({
           {userLocation ? " Your location is marked in blue." : ""}
         </p>
       </div>
-      <div className="h-[680px] xl:h-[760px]">
+      <div className="relative min-h-0 flex-1">
         <MapContainer
           center={mapCenter}
           zoom={15}

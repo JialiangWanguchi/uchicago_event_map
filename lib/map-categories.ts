@@ -20,7 +20,15 @@ export const MAP_LEGEND_ITEMS = [
   { label: "Other", color: "#64748b" }
 ] as const;
 
-export const NEAR_ME_RADIUS_KM = 1.5;
+export const NEAR_ME_DEFAULT_KM = 1;
+
+export const NEAR_ME_DISTANCE_OPTIONS = [
+  { label: "500 m", km: 0.5 },
+  { label: "1 km", km: 1 },
+  { label: "1.5 km", km: 1.5 },
+  { label: "2 km", km: 2 },
+  { label: "3 km", km: 3 }
+] as const;
 
 export const MAP_CLUSTER_DISABLE_ZOOM = 16;
 

@@ -12,6 +12,33 @@ export function getEventTimeStatus(
   return "ended";
 }
 
+/** Live (latest start first) → upcoming (soonest first) → ended (earlier end first). */
+export function sortEventsForDisplay<T extends { start_at: string; end_at: string | null }>(
+  events: T[],
+  now = Date.now()
+): T[] {
+  const live: T[] = [];
+  const upcoming: T[] = [];
+  const ended: T[] = [];
+
+  for (const event of events) {
+    const status = getEventTimeStatus(event, now);
+    if (status === "live") live.push(event);
+    else if (status === "upcoming") upcoming.push(event);
+    else ended.push(event);
+  }
+
+  live.sort((a, b) => new Date(b.start_at).getTime() - new Date(a.start_at).getTime());
+  upcoming.sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime());
+  ended.sort((a, b) => {
+    const aEnd = a.end_at ? new Date(a.end_at).getTime() : new Date(a.start_at).getTime();
+    const bEnd = b.end_at ? new Date(b.end_at).getTime() : new Date(b.start_at).getTime();
+    return aEnd - bEnd;
+  });
+
+  return [...live, ...upcoming, ...ended];
+}
+
 export function formatCountdownToStart(startAt: string, now = Date.now()) {
   const diffMs = new Date(startAt).getTime() - now;
   if (diffMs <= 0) return null;

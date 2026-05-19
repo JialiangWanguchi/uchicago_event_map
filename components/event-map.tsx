@@ -11,6 +11,7 @@ type Props = {
   nearMeActive?: boolean;
   nearMeRadiusKm?: number;
   centerOnUser?: boolean;
+  className?: string;
 };
 
 const EventMapClient = dynamic(() => import("@/components/event-map-client"), {

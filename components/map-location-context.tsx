@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { NEAR_ME_RADIUS_KM } from "@/lib/map-categories";
+import { NEAR_ME_DEFAULT_KM } from "@/lib/map-categories";
 
 type UserLocation = { lat: number; lng: number };
 
@@ -13,10 +13,19 @@ type MapLocationContextValue = {
   nearMeActive: boolean;
   nearMeRadiusKm: number;
   setNearMeActive: (active: boolean) => void;
+  setNearMeDistance: (km: number) => void;
   requestLocation: () => void;
 };
 
 const MapLocationContext = createContext<MapLocationContextValue | null>(null);
+
+function parseNearMeRadius(searchParams: URLSearchParams) {
+  const fromUrl = Number(searchParams.get("maxDistanceKm"));
+  if (Number.isFinite(fromUrl) && fromUrl > 0) {
+    return fromUrl;
+  }
+  return NEAR_ME_DEFAULT_KM;
+}
 
 export function MapLocationProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -26,6 +35,7 @@ export function MapLocationProvider({ children }: { children: ReactNode }) {
   const [locationLoading, setLocationLoading] = useState(true);
 
   const nearMeActive = Boolean(searchParams.get("nearLat") && searchParams.get("nearLng"));
+  const nearMeRadiusKm = parseNearMeRadius(searchParams);
 
   const requestLocation = useCallback(() => {
     if (!navigator.geolocation) {
@@ -56,15 +66,20 @@ export function MapLocationProvider({ children }: { children: ReactNode }) {
     requestLocation();
   }, [requestLocation]);
 
-  function setNearMeActive(active: boolean) {
+  function pushParams(mutate: (next: URLSearchParams) => void) {
     const next = new URLSearchParams(searchParams.toString());
     next.delete("page");
+    mutate(next);
+    router.push(`/?${next.toString()}`);
+  }
 
+  function setNearMeActive(active: boolean) {
     if (!active) {
-      next.delete("nearLat");
-      next.delete("nearLng");
-      next.delete("maxDistanceKm");
-      router.push(`/?${next.toString()}`);
+      pushParams((next) => {
+        next.delete("nearLat");
+        next.delete("nearLng");
+        next.delete("maxDistanceKm");
+      });
       return;
     }
 
@@ -73,10 +88,32 @@ export function MapLocationProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    next.set("nearLat", String(userLocation.lat));
-    next.set("nearLng", String(userLocation.lng));
-    next.set("maxDistanceKm", String(NEAR_ME_RADIUS_KM));
-    router.push(`/?${next.toString()}`);
+    pushParams((next) => {
+      next.set("nearLat", String(userLocation.lat));
+      next.set("nearLng", String(userLocation.lng));
+      if (!next.get("maxDistanceKm")) {
+        next.set("maxDistanceKm", String(NEAR_ME_DEFAULT_KM));
+      }
+    });
+  }
+
+  function setNearMeDistance(km: number) {
+    if (!nearMeActive) {
+      if (!userLocation) {
+        requestLocation();
+        return;
+      }
+      pushParams((next) => {
+        next.set("nearLat", String(userLocation.lat));
+        next.set("nearLng", String(userLocation.lng));
+        next.set("maxDistanceKm", String(km));
+      });
+      return;
+    }
+
+    pushParams((next) => {
+      next.set("maxDistanceKm", String(km));
+    });
   }
 
   useEffect(() => {
@@ -90,11 +127,12 @@ export function MapLocationProvider({ children }: { children: ReactNode }) {
       locationError,
       locationLoading,
       nearMeActive,
-      nearMeRadiusKm: NEAR_ME_RADIUS_KM,
+      nearMeRadiusKm,
       setNearMeActive,
+      setNearMeDistance,
       requestLocation
     }),
-    [userLocation, locationError, locationLoading, nearMeActive, requestLocation]
+    [userLocation, locationError, locationLoading, nearMeActive, nearMeRadiusKm, requestLocation]
   );
 
   return <MapLocationContext.Provider value={value}>{children}</MapLocationContext.Provider>;

@@ -14,14 +14,13 @@ export default async function Home({ searchParams }: Props) {
   const params = await searchParams;
   const filters = parseEventFilters(params);
 
-  const [{ events, page, total, pageSize }, mapEvents, userId] = await Promise.all([
+  const [{ events, total }, mapEvents, userId] = await Promise.all([
     getEvents(filters),
     getMapEvents(filters),
     getCurrentUserId()
   ]);
   const savedIds = await getSavedEventIds(userId);
   const canSave = hasSavedEventsConfig();
-  const totalPages = Math.max(Math.ceil(total / pageSize), 1);
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -47,8 +46,6 @@ export default async function Home({ searchParams }: Props) {
           canSave={canSave}
           filters={filters}
           total={total}
-          page={page}
-          totalPages={totalPages}
         />
       </Suspense>
     </main>

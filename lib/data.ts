@@ -1,5 +1,6 @@
-import { ARCHIVE_DAYS_AFTER_END, DEFAULT_PAGE_SIZE } from "@/lib/constants";
+import { ARCHIVE_DAYS_AFTER_END, LIST_EVENTS_LIMIT } from "@/lib/constants";
 import { buildEmbeddingText, embeddingHash } from "@/lib/embed-text";
+import { sortEventsForDisplay } from "@/lib/event-status";
 import { filterByMaxDistance, haversineKm, sortByDistance } from "@/lib/geo-utils";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { rpcMatchEvents } from "@/lib/supabase/rpc";
@@ -16,8 +17,31 @@ function logDbError(context: string, error: unknown) {
   console.error(`[campus-event-map] ${context}:`, error);
 }
 
+function isLive(event: Pick<EventRecord, "start_at" | "end_at">, now = Date.now()) {
+  const startMs = new Date(event.start_at).getTime();
+  const endMs = event.end_at ? new Date(event.end_at).getTime() : startMs + 3600000;
+  return now >= startMs && now <= endMs;
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function applyEventFilters(query: any, filters: EventFilters) {
+  const nowIso = new Date().toISOString();
+
+  if (filters.happeningNow) {
+    let q = query.lte("start_at", nowIso);
+    if (filters.dateTo) {
+      q = q.lte("start_at", `${filters.dateTo}T23:59:59`);
+    }
+    if (filters.q && !filters.semantic) {
+      const escaped = filters.q.replace(/[%_]/g, "");
+      q = q.or(`title.ilike.%${escaped}%,summary.ilike.%${escaped}%,venue_name.ilike.%${escaped}%`);
+    }
+    if (filters.category) {
+      q = q.overlaps("categories", [filters.category]);
+    }
+    return q;
+  }
+
   let q = query.gte("start_at", filters.dateFrom ?? new Date().toISOString().slice(0, 10));
 
   if (filters.dateTo) {
@@ -33,29 +57,7 @@ function applyEventFilters(query: any, filters: EventFilters) {
     q = q.overlaps("categories", [filters.category]);
   }
 
-  if (filters.happeningNow) {
-    const now = new Date().toISOString();
-    q = q.lte("start_at", now).or(`end_at.is.null,end_at.gte."${now}"`);
-  }
-
   return q;
-}
-
-function isLive(event: Pick<EventRecord, "start_at" | "end_at">, now = Date.now()) {
-  const startMs = new Date(event.start_at).getTime();
-  const endMs = event.end_at ? new Date(event.end_at).getTime() : startMs + 3600000;
-  return now >= startMs && now <= endMs;
-}
-
-function sortEventsWithLiveFirst(events: EventRecord[]) {
-  const now = Date.now();
-  return [...events].sort((a, b) => {
-    const aLive = isLive(a, now);
-    const bLive = isLive(b, now);
-    if (aLive && !bLive) return -1;
-    if (!aLive && bLive) return 1;
-    return new Date(a.start_at).getTime() - new Date(b.start_at).getTime();
-  });
 }
 
 function attachDistance(events: EventRecord[], nearLat?: number, nearLng?: number): EventRecord[] {
@@ -74,92 +76,6 @@ function attachDistance(events: EventRecord[], nearLat?: number, nearLng?: numbe
   });
 }
 
-export async function getEvents(filters: EventFilters = {}): Promise<EventListResult> {
-  if (!hasSupabaseConfig()) {
-    return {
-      events: [],
-      total: 0,
-      page: filters.page ?? 1,
-      pageSize: filters.pageSize ?? DEFAULT_PAGE_SIZE
-    };
-  }
-
-  const client = await createServerSupabaseClient();
-  if (!client) {
-    return { events: [], total: 0, page: 1, pageSize: DEFAULT_PAGE_SIZE };
-  }
-
-  const page = Math.max(filters.page ?? 1, 1);
-  const pageSize = filters.pageSize ?? DEFAULT_PAGE_SIZE;
-
-  if (filters.semantic && filters.q) {
-    const semantic = await searchEventsSemantic(filters.q, 50);
-    const ids = semantic.map((row) => row.id);
-    if (ids.length === 0) {
-      return { events: [], total: 0, page, pageSize };
-    }
-
-    const { data, error } = await client.from("events").select("*").in("id", ids);
-    if (error) {
-      logDbError("getEvents.semantic", error);
-      return { events: [], total: 0, page, pageSize };
-    }
-
-    const rows = (data ?? []) as EventRecord[];
-    const byId = new Map(rows.map((row) => [row.id, row]));
-    let ordered = ids.map((id) => byId.get(id)).filter(Boolean) as EventRecord[];
-    ordered = applyNearMeFilters(ordered, filters);
-    const total = ordered.length;
-    const from = (page - 1) * pageSize;
-    return {
-      events: sortEventsWithLiveFirst(ordered.slice(from, from + pageSize)),
-      total,
-      page,
-      pageSize
-    };
-  }
-
-  if (filters.nearLat != null && filters.nearLng != null) {
-    let query = client.from("events").select("*");
-    query = applyEventFilters(query, filters);
-    const { data, error } = await query;
-    if (error) {
-      logDbError("getEvents.nearMe", error);
-      return { events: [], total: 0, page, pageSize };
-    }
-
-    let events = (data ?? []) as EventRecord[];
-    events = applyNearMeFilters(events, filters);
-    const total = events.length;
-    const from = (page - 1) * pageSize;
-    return {
-      events: sortEventsWithLiveFirst(events.slice(from, from + pageSize)),
-      total,
-      page,
-      pageSize
-    };
-  }
-
-  const from = (page - 1) * pageSize;
-  const to = from + pageSize - 1;
-
-  let query = client.from("events").select("*", { count: "exact" }).order("start_at", { ascending: true });
-  query = applyEventFilters(query, filters);
-
-  const { data, count, error } = await query.range(from, to);
-  if (error) {
-    logDbError("getEvents", error);
-    return { events: [], total: 0, page, pageSize };
-  }
-
-  return {
-    events: sortEventsWithLiveFirst((data ?? []) as EventRecord[]),
-    total: count ?? 0,
-    page,
-    pageSize
-  };
-}
-
 function applyNearMeFilters(events: EventRecord[], filters: EventFilters) {
   let result = attachDistance(events, filters.nearLat, filters.nearLng);
 
@@ -167,11 +83,66 @@ function applyNearMeFilters(events: EventRecord[], filters: EventFilters) {
     result = filterByMaxDistance(result, filters.nearLat, filters.nearLng, filters.maxDistanceKm);
   }
 
-  if (filters.nearLat != null && filters.nearLng != null) {
-    result = sortByDistance(result, filters.nearLat, filters.nearLng);
+  return result;
+}
+
+function finalizeEventsList(events: EventRecord[], filters: EventFilters): EventRecord[] {
+  let result = events;
+  if (filters.happeningNow) {
+    result = result.filter((event) => isLive(event));
+  }
+  result = applyNearMeFilters(result, filters);
+  return sortEventsForDisplay(result);
+}
+
+function listResult(events: EventRecord[]): EventListResult {
+  return {
+    events,
+    total: events.length,
+    page: 1,
+    pageSize: events.length
+  };
+}
+
+export async function getEvents(filters: EventFilters = {}): Promise<EventListResult> {
+  if (!hasSupabaseConfig()) {
+    return listResult([]);
   }
 
-  return result;
+  const client = await createServerSupabaseClient();
+  if (!client) {
+    return listResult([]);
+  }
+
+  if (filters.semantic && filters.q) {
+    const semantic = await searchEventsSemantic(filters.q, 200);
+    const ids = semantic.map((row) => row.id);
+    if (ids.length === 0) {
+      return listResult([]);
+    }
+
+    const { data, error } = await client.from("events").select("*").in("id", ids);
+    if (error) {
+      logDbError("getEvents.semantic", error);
+      return listResult([]);
+    }
+
+    const rows = (data ?? []) as EventRecord[];
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    const ordered = ids.map((id) => byId.get(id)).filter(Boolean) as EventRecord[];
+    return listResult(finalizeEventsList(ordered, filters));
+  }
+
+  let query = client.from("events").select("*").order("start_at", { ascending: true }).limit(LIST_EVENTS_LIMIT);
+  query = applyEventFilters(query, filters);
+
+  const { data, error } = await query;
+  if (error) {
+    logDbError("getEvents", error);
+    return listResult([]);
+  }
+
+  return listResult(finalizeEventsList((data ?? []) as EventRecord[], filters));
 }
 
 export async function getMapEvents(filters: EventFilters = {}): Promise<MapEventRecord[]> {
@@ -190,7 +161,7 @@ export async function getMapEvents(filters: EventFilters = {}): Promise<MapEvent
     .not("latitude", "is", null)
     .not("longitude", "is", null)
     .order("start_at", { ascending: true })
-    .limit(500);
+    .limit(LIST_EVENTS_LIMIT);
 
   query = applyEventFilters(query, filters);
 
@@ -201,6 +172,10 @@ export async function getMapEvents(filters: EventFilters = {}): Promise<MapEvent
   }
 
   let events = (data ?? []) as MapEventRecord[];
+
+  if (filters.happeningNow) {
+    events = events.filter((event) => isLive(event));
+  }
 
   if (filters.semantic && filters.q) {
     const semantic = await searchEventsSemantic(filters.q, 200);
@@ -272,8 +247,8 @@ export async function getSavedEventIds(userId: string | null) {
     return new Set<string>();
   }
 
-  const client = createAdminSupabaseClient();
   try {
+    const client = createAdminSupabaseClient();
     const { data, error } = await client.from("saved_events").select("event_id").eq("user_id", userId);
     if (error) {
       logDbError("getSavedEventIds", error);

@@ -1,15 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { EmptyState } from "@/components/empty-state";
 import { EventCard } from "@/components/event-card";
 import { EventMap } from "@/components/event-map";
-import { mapEventToPreview } from "@/lib/event-status";
+import { getEventTimeStatus } from "@/lib/event-status";
 import { formatDistanceKm } from "@/lib/geo-utils";
 import { useMapLocation } from "@/components/map-location-context";
 import type { EventFilters, EventRecord, MapEventRecord } from "@/types/event";
+
+const PANEL_HEIGHT = "h-[680px] xl:h-[760px]";
 
 type Props = {
   events: EventRecord[];
@@ -18,24 +18,38 @@ type Props = {
   canSave: boolean;
   filters: EventFilters;
   total: number;
-  page: number;
-  totalPages: number;
 };
 
-export function EventExplorer({ events, mapEvents, savedEventIds, canSave, filters, total, page, totalPages }: Props) {
+function ListSectionHeader({ label }: { label: string }) {
+  return (
+    <div className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50/95 px-1 py-2 backdrop-blur-sm">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+    </div>
+  );
+}
+
+export function EventExplorer({ events, mapEvents, savedEventIds, canSave, filters, total }: Props) {
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [centerOnUser, setCenterOnUser] = useState(false);
+  const listScrollRef = useRef<HTMLDivElement>(null);
   const savedIds = useMemo(() => new Set(savedEventIds), [savedEventIds]);
   const [now, setNow] = useState(Date.now());
   const { userLocation, nearMeActive, nearMeRadiusKm, locationLoading, locationError } = useMapLocation();
 
-  const mapEventsById = useMemo(() => new Map(mapEvents.map((event) => [event.id, event])), [mapEvents]);
-  const eventsById = useMemo(() => new Map(events.map((event) => [event.id, event])), [events]);
+  const listSections = useMemo(() => {
+    const live: EventRecord[] = [];
+    const upcoming: EventRecord[] = [];
+    const ended: EventRecord[] = [];
 
-  const selectedFromMap = selectedEventId ? mapEventsById.get(selectedEventId) : null;
-  const selectedInList = selectedEventId ? eventsById.get(selectedEventId) : null;
-  const pinnedMapEvent =
-    selectedFromMap && !selectedInList ? mapEventToPreview(selectedFromMap) : null;
+    for (const event of events) {
+      const status = getEventTimeStatus(event, now);
+      if (status === "live") live.push(event);
+      else if (status === "upcoming") upcoming.push(event);
+      else ended.push(event);
+    }
+
+    return { live, upcoming, ended };
+  }, [events, now]);
 
   useEffect(() => {
     const interval = setInterval(() => setNow(Date.now()), 30000);
@@ -44,10 +58,21 @@ export function EventExplorer({ events, mapEvents, savedEventIds, canSave, filte
 
   useEffect(() => {
     if (!selectedEventId) return;
-    window.setTimeout(() => {
-      document.getElementById(`event-card-${selectedEventId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 100);
-  }, [selectedEventId, events, pinnedMapEvent]);
+
+    const timer = window.setTimeout(() => {
+      const container = listScrollRef.current;
+      const card = document.getElementById(`event-card-${selectedEventId}`);
+      if (!container || !card) return;
+
+      const containerRect = container.getBoundingClientRect();
+      const cardRect = card.getBoundingClientRect();
+      const nextTop = container.scrollTop + (cardRect.top - containerRect.top);
+
+      container.scrollTo({ top: nextTop, behavior: "smooth" });
+    }, 80);
+
+    return () => window.clearTimeout(timer);
+  }, [selectedEventId, events]);
 
   useEffect(() => {
     if (nearMeActive && userLocation) {
@@ -57,100 +82,25 @@ export function EventExplorer({ events, mapEvents, savedEventIds, canSave, filte
     }
   }, [nearMeActive, userLocation]);
 
-  function pageHref(nextPage: number) {
-    const next = new URLSearchParams();
-    if (filters.q) next.set("q", filters.q);
-    if (filters.category) next.set("category", filters.category);
-    if (filters.dateFrom) next.set("dateFrom", filters.dateFrom);
-    if (filters.dateTo) next.set("dateTo", filters.dateTo);
-    if (filters.happeningNow) next.set("happeningNow", "1");
-    if (filters.semantic) next.set("semantic", "1");
-    if (filters.nearLat != null) next.set("nearLat", String(filters.nearLat));
-    if (filters.nearLng != null) next.set("nearLng", String(filters.nearLng));
-    if (filters.maxDistanceKm != null) next.set("maxDistanceKm", String(filters.maxDistanceKm));
-    next.set("page", String(nextPage));
-    return `/?${next.toString()}`;
+  function renderEvent(event: EventRecord) {
+    return (
+      <EventCard
+        key={event.id}
+        event={event}
+        isSaved={savedIds.has(event.id)}
+        canSave={canSave}
+        selected={selectedEventId === event.id}
+        onSelect={() => setSelectedEventId(event.id)}
+        distanceLabel={event.distance_km != null ? formatDistanceKm(event.distance_km) : undefined}
+        endTimeUnknown={!event.end_at}
+        now={now}
+      />
+    );
   }
 
   return (
-    <section className="mt-6 grid gap-6 xl:grid-cols-[minmax(540px,1.45fr)_minmax(360px,0.85fr)]">
-      <div className="order-2 space-y-4 xl:order-2">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-950">Events</h2>
-            <p className="text-sm text-slate-600">{total} matching events</p>
-          </div>
-        </div>
-
-        {locationLoading ? (
-          <p className="text-xs text-slate-500">Getting your location for the map…</p>
-        ) : locationError ? (
-          <p className="text-xs text-amber-700">Location unavailable: {locationError}</p>
-        ) : userLocation ? (
-          <p className="text-xs text-slate-500">Your location is shown on the map (blue dot).</p>
-        ) : null}
-
-        {pinnedMapEvent ? (
-          <div className="space-y-2">
-            <p className="text-xs font-medium text-amber-800">Selected from map (not on this page)</p>
-            <EventCard
-              event={pinnedMapEvent}
-              isSaved={savedIds.has(pinnedMapEvent.id)}
-              canSave={canSave}
-              selected
-              onSelect={() => setSelectedEventId(pinnedMapEvent.id)}
-              now={now}
-            />
-          </div>
-        ) : null}
-
-        {events.length ? (
-          events.map((event) => (
-            <EventCard
-              key={event.id}
-              event={event}
-              isSaved={savedIds.has(event.id)}
-              canSave={canSave}
-              selected={selectedEventId === event.id}
-              onSelect={() => setSelectedEventId(event.id)}
-              distanceLabel={event.distance_km != null ? formatDistanceKm(event.distance_km) : undefined}
-              endTimeUnknown={!event.end_at}
-              now={now}
-            />
-          ))
-        ) : (
-          <EmptyState
-            title="No events match these filters"
-            description="Adjust filters or run ingestion after configuring Supabase."
-          />
-        )}
-
-        <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3">
-          <p className="text-sm text-slate-600">
-            Page {page} of {totalPages}
-          </p>
-          <div className="flex gap-2">
-            <Link
-              href={page > 1 ? pageHref(page - 1) : "#"}
-              aria-disabled={page <= 1}
-              className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-300 px-3 text-sm aria-disabled:pointer-events-none aria-disabled:opacity-40"
-            >
-              <ChevronLeft className="h-4 w-4" />
-              Previous
-            </Link>
-            <Link
-              href={page < totalPages ? pageHref(page + 1) : "#"}
-              aria-disabled={page >= totalPages}
-              className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-300 px-3 text-sm aria-disabled:pointer-events-none aria-disabled:opacity-40"
-            >
-              Next
-              <ChevronRight className="h-4 w-4" />
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      <div className="order-1 xl:sticky xl:top-6 xl:self-start">
+    <section className={`mt-6 grid gap-6 xl:grid-cols-[minmax(540px,1.45fr)_minmax(360px,0.85fr)] xl:items-start`}>
+      <div className={`order-1 ${PANEL_HEIGHT} overflow-hidden`}>
         <EventMap
           events={mapEvents}
           selectedEventId={selectedEventId}
@@ -159,7 +109,58 @@ export function EventExplorer({ events, mapEvents, savedEventIds, canSave, filte
           nearMeActive={nearMeActive}
           nearMeRadiusKm={nearMeRadiusKm}
           centerOnUser={centerOnUser}
+          className="h-full"
         />
+      </div>
+
+      <div className="order-2 flex min-h-0 flex-col">
+        <div className="mb-3 shrink-0">
+          <h2 className="text-lg font-semibold text-slate-950">Events</h2>
+          <p className="text-sm text-slate-600">{total} matching events</p>
+          {locationLoading ? (
+            <p className="mt-1 text-xs text-slate-500">Getting your location for the map…</p>
+          ) : locationError ? (
+            <p className="mt-1 text-xs text-amber-700">Location unavailable: {locationError}</p>
+          ) : userLocation ? (
+            <p className="mt-1 text-xs text-slate-500">Your location is shown on the map (blue dot).</p>
+          ) : null}
+          {filters.happeningNow ? (
+            <p className="mt-1 text-xs font-medium text-red-700">Showing live events only.</p>
+          ) : null}
+        </div>
+
+        <div
+          ref={listScrollRef}
+          className={`${PANEL_HEIGHT} min-h-0 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-3 shadow-inner`}
+        >
+          {events.length ? (
+            <div className="space-y-3">
+              {listSections.live.length ? (
+                <section className="space-y-3">
+                  <ListSectionHeader label="Happening now" />
+                  {listSections.live.map(renderEvent)}
+                </section>
+              ) : null}
+              {listSections.upcoming.length ? (
+                <section className="space-y-3">
+                  <ListSectionHeader label="Upcoming" />
+                  {listSections.upcoming.map(renderEvent)}
+                </section>
+              ) : null}
+              {listSections.ended.length ? (
+                <section className="space-y-3">
+                  <ListSectionHeader label="Ended" />
+                  {listSections.ended.map(renderEvent)}
+                </section>
+              ) : null}
+            </div>
+          ) : (
+            <EmptyState
+              title="No events match these filters"
+              description="Adjust filters or run ingestion after configuring Supabase."
+            />
+          )}
+        </div>
       </div>
     </section>
   );

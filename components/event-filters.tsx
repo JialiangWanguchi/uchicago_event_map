@@ -18,6 +18,7 @@ import {
   subMonths
 } from "date-fns";
 import { CATEGORY_OPTIONS } from "@/lib/constants";
+import { NEAR_ME_DISTANCE_OPTIONS } from "@/lib/map-categories";
 import { useMapLocation } from "@/components/map-location-context";
 import { cn } from "@/lib/utils";
 
@@ -103,7 +104,8 @@ export function EventFilters() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [searchValue, setSearchValue] = useState(searchParams.get("q") ?? "");
-  const { nearMeActive, setNearMeActive, userLocation, locationLoading } = useMapLocation();
+  const { nearMeActive, nearMeRadiusKm, setNearMeActive, setNearMeDistance, userLocation, locationLoading } =
+    useMapLocation();
 
   useEffect(() => {
     setSearchValue(searchParams.get("q") ?? "");
@@ -206,6 +208,23 @@ export function EventFilters() {
           <LocateFixed className="h-4 w-4" />
           Near me {nearMeActive ? "(on)" : ""}
         </button>
+        {nearMeActive ? (
+          <label className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-sm text-slate-700">
+            <span className="font-medium">Within</span>
+            <select
+              aria-label="Near me distance"
+              value={nearMeRadiusKm}
+              onChange={(event) => setNearMeDistance(Number(event.target.value))}
+              className="rounded-md border border-slate-300 bg-white px-2 py-0.5 text-sm outline-none focus:border-brand-500"
+            >
+              {NEAR_ME_DISTANCE_OPTIONS.map((option) => (
+                <option key={option.km} value={option.km}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
       </div>
     </section>
   );

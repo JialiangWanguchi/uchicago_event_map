@@ -14,8 +14,6 @@ type Props = {
   canSave: boolean;
   filters: Filters;
   total: number;
-  page: number;
-  totalPages: number;
 };
 
 export function ExploreShell(props: Props) {
