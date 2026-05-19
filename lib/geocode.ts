@@ -1,19 +1,48 @@
-import { BUILDING_COORDINATES, CAMPUS_CENTER } from "@/lib/constants";
+import { BUILDING_COORDINATES, CAMPUS_CENTER, VIRTUAL_LOCATION_PATTERN } from "@/lib/constants";
 import { env } from "@/lib/env";
+import type { GeocodeSource } from "@/types/event";
 
-type Coordinates = { lat: number; lng: number; source: "lookup" | "geocoder" | "fallback" };
+type Coordinates = { lat: number; lng: number; source: GeocodeSource };
+
+let lastNominatimCall = 0;
 
 function normalizeVenue(value?: string | null) {
   return (value ?? "").toLowerCase().replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim();
 }
 
-export async function resolveCoordinates(venue?: string | null, address?: string | null): Promise<Coordinates> {
+export function isVirtualLocation(venue?: string | null) {
+  return VIRTUAL_LOCATION_PATTERN.test(venue ?? "");
+}
+
+async function waitForNominatimSlot() {
+  const minGapMs = 1100;
+  const elapsed = Date.now() - lastNominatimCall;
+  if (elapsed < minGapMs) {
+    await new Promise((resolve) => setTimeout(resolve, minGapMs - elapsed));
+  }
+  lastNominatimCall = Date.now();
+}
+
+export async function resolveCoordinates(
+  venue?: string | null,
+  address?: string | null,
+  upstream?: { lat: number; lng: number } | null
+): Promise<Coordinates> {
+  if (isVirtualLocation(venue) || isVirtualLocation(address)) {
+    return { lat: 0, lng: 0, source: "none" };
+  }
+
+  if (upstream?.lat && upstream?.lng) {
+    return { lat: upstream.lat, lng: upstream.lng, source: "upstream" };
+  }
+
   const normalizedVenue = normalizeVenue(venue);
 
   if (normalizedVenue) {
-    for (const [key, value] of Object.entries(BUILDING_COORDINATES)) {
+    const sortedKeys = Object.keys(BUILDING_COORDINATES).sort((a, b) => b.length - a.length);
+    for (const key of sortedKeys) {
       if (normalizedVenue.includes(key)) {
-        return { ...value, source: "lookup" };
+        return { ...BUILDING_COORDINATES[key], source: "lookup" };
       }
     }
   }
@@ -32,6 +61,7 @@ export async function resolveCoordinates(venue?: string | null, address?: string
 
 async function geocodeWithNominatim(query: string) {
   try {
+    await waitForNominatimSlot();
     const response = await fetch(
       `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(query)}`,
       {
@@ -58,5 +88,22 @@ async function geocodeWithNominatim(query: string) {
     };
   } catch {
     return null;
+  }
+}
+
+export function geocodeSourceLabel(source: GeocodeSource | null | undefined) {
+  switch (source) {
+    case "lookup":
+      return "Campus building match";
+    case "upstream":
+      return "Official coordinates";
+    case "geocoder":
+      return "Geocoded address";
+    case "fallback":
+      return "Approximate campus location";
+    case "none":
+      return "Online / no map pin";
+    default:
+      return null;
   }
 }

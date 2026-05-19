@@ -17,6 +17,7 @@ create table if not exists public.events (
   location_text text,
   latitude double precision,
   longitude double precision,
+  geocode_source text,
   categories text[] not null default '{}',
   tags text[] not null default '{}',
   raw_payload jsonb not null default '{}'::jsonb,
@@ -25,6 +26,10 @@ create table if not exists public.events (
 );
 
 alter table public.events add column if not exists embedding vector(1536);
+alter table public.events add column if not exists embed_hash text;
+alter table public.events add column if not exists geocode_source text;
+
+create index if not exists events_embedding_idx on public.events using ivfflat (embedding vector_cosine_ops) with (lists = 100);
 
 create or replace function match_events(
   query_embedding vector(1536),
@@ -40,6 +45,7 @@ returns table (
   end_at timestamptz,
   venue_name text,
   location_text text,
+  categories text[],
   similarity float
 )
 language sql stable
@@ -52,14 +58,16 @@ as $$
     events.end_at,
     events.venue_name,
     events.location_text,
+    events.categories,
     1 - (events.embedding <=> query_embedding) as similarity
   from events
-  where 1 - (events.embedding <=> query_embedding) > match_threshold
+  where events.embedding is not null
+    and events.start_at >= now()
+    and 1 - (events.embedding <=> query_embedding) > match_threshold
     and (exclude_id is null or events.id != exclude_id)
   order by events.embedding <=> query_embedding
   limit match_count;
 $$;
-
 
 create index if not exists events_start_at_idx on public.events (start_at);
 create index if not exists events_slug_idx on public.events (slug);

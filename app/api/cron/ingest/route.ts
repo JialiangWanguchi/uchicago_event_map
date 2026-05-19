@@ -1,19 +1,25 @@
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { ingestEvents } from "@/lib/data";
 import { env } from "@/lib/env";
 
-export async function POST(request: Request) {
+function isAuthorized(request: Request) {
   const headerSecret = request.headers.get("x-ingest-secret");
+  const authHeader = request.headers.get("authorization");
+  const bearerSecret = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  const secret = env.ingestSecret;
+  return Boolean(secret && (headerSecret === secret || bearerSecret === secret));
+}
 
-  if (!env.ingestSecret || headerSecret !== env.ingestSecret) {
+export async function POST(request: Request) {
+  if (!isAuthorized(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const url = new URL(request.url);
-  const pages = Number(url.searchParams.get("pages") ?? 3);
-
   try {
-    const result = await ingestEvents({ pages });
+    const result = await ingestEvents();
+    revalidatePath("/");
+    revalidatePath("/saved");
     return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json(
@@ -21,4 +27,8 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
+}
+
+export async function GET(request: Request) {
+  return POST(request);
 }

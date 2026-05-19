@@ -1,8 +1,9 @@
 import { resolveCoordinates } from "@/lib/geocode";
 import { slugify, stripHtml } from "@/lib/utils";
-import type { LocalistResponse } from "@/lib/localist";
+import type { fetchAllLocalistEvents } from "@/lib/localist";
+import type { GeocodeSource } from "@/types/event";
 
-type FeedItem = LocalistResponse["events"][number]["event"];
+type FeedItem = Awaited<ReturnType<typeof fetchAllLocalistEvents>>[number];
 
 function toIsoString(value: string | null) {
   if (!value) {
@@ -22,14 +23,16 @@ export async function normalizeLocalistEvent(item: FeedItem) {
   }
 
   const endAt = toIsoString(item.ends);
-  const fallbackGeo =
-    item.latitude && item.longitude
-      ? { lat: item.latitude, lng: item.longitude }
-      : await resolveCoordinates(item.location, null);
+  const upstreamGeo =
+    item.latitude && item.longitude ? { lat: item.latitude, lng: item.longitude } : null;
+  const resolved = await resolveCoordinates(item.location, null, upstreamGeo);
 
   const summary = stripHtml(item.description).slice(0, 220) || null;
   const instanceId = `${item.id}-${startAt}`;
   const tags = Array.from(new Set([...item.audience, ...item.campus]));
+
+  const latitude = resolved.source === "none" ? null : resolved.lat;
+  const longitude = resolved.source === "none" ? null : resolved.lng;
 
   return {
     id: instanceId,
@@ -45,8 +48,9 @@ export async function normalizeLocalistEvent(item: FeedItem) {
     venue_name: item.location,
     address: null,
     location_text: item.location,
-    latitude: fallbackGeo.lat,
-    longitude: fallbackGeo.lng,
+    latitude,
+    longitude,
+    geocode_source: resolved.source as GeocodeSource,
     categories: item.categories,
     tags,
     raw_payload: item,

@@ -40,3 +40,13 @@ export function stripHtml(input?: string | null) {
 
   return input.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 }
+
+export function isEventLive(event: { start_at: string; end_at: string | null }, now = Date.now()) {
+  const startMs = new Date(event.start_at).getTime();
+  const endMs = event.end_at ? new Date(event.end_at).getTime() : startMs + 3600000;
+  return now >= startMs && now <= endMs;
+}
+
+export function hasUnknownEndTime(event: { end_at: string | null }) {
+  return !event.end_at;
+}

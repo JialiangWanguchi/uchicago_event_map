@@ -153,6 +153,21 @@ function parseRssItem(block: string): LiveWhaleRssItem | null {
 }
 
 export async function fetchLocalistEvents(page = 1) {
+  const all = await fetchAllLocalistEvents();
+  const perPage = 100;
+  const from = (page - 1) * perPage;
+  const to = from + perPage;
+
+  return {
+    events: all.slice(from, to).map((event) => ({ event })),
+    page: {
+      current: page,
+      total: Math.max(Math.ceil(all.length / perPage), 1)
+    }
+  };
+}
+
+export async function fetchAllLocalistEvents() {
   const response = await fetch(LIVEWHALE_RSS_ENDPOINT, {
     cache: "no-store"
   });
@@ -162,21 +177,9 @@ export async function fetchLocalistEvents(page = 1) {
   }
 
   const xml = await response.text();
-  const parsed = extractItems(xml)
+  return extractItems(xml)
     .map(parseRssItem)
     .filter(Boolean) as LiveWhaleRssItem[];
-
-  const perPage = 100;
-  const from = (page - 1) * perPage;
-  const to = from + perPage;
-
-  return {
-    events: parsed.slice(from, to).map((event) => ({ event })),
-    page: {
-      current: page,
-      total: Math.max(Math.ceil(parsed.length / perPage), 1)
-    }
-  };
 }
 
 export type LocalistResponse = Awaited<ReturnType<typeof fetchLocalistEvents>>;

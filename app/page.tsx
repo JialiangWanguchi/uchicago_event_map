@@ -1,9 +1,9 @@
 import { EventExplorer } from "@/components/event-explorer";
 import { EventFilters } from "@/components/event-filters";
 import { getCurrentUserId } from "@/lib/auth";
-import { getEvents, getSavedEventIds } from "@/lib/data";
+import { getEvents, getMapEvents, getSavedEventIds } from "@/lib/data";
 import { hasSavedEventsConfig, hasSupabaseConfig } from "@/lib/env";
-import type { EventFilters as Filters } from "@/types/event";
+import { parseEventFilters } from "@/lib/parse-filters";
 
 type Props = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -11,15 +11,13 @@ type Props = {
 
 export default async function Home({ searchParams }: Props) {
   const params = await searchParams;
-  const filters: Filters = {
-    page: Number(params.page ?? 1),
-    q: typeof params.q === "string" ? params.q : undefined,
-    category: typeof params.category === "string" ? params.category : undefined,
-    dateFrom: typeof params.dateFrom === "string" ? params.dateFrom : undefined,
-    dateTo: typeof params.dateTo === "string" ? params.dateTo : undefined
-  };
+  const filters = parseEventFilters(params);
 
-  const [{ events, page, total, pageSize }, userId] = await Promise.all([getEvents(filters), getCurrentUserId()]);
+  const [{ events, page, total, pageSize }, mapEvents, userId] = await Promise.all([
+    getEvents(filters),
+    getMapEvents(filters),
+    getCurrentUserId()
+  ]);
   const savedIds = await getSavedEventIds(userId);
   const canSave = hasSavedEventsConfig();
   const totalPages = Math.max(Math.ceil(total / pageSize), 1);
@@ -30,12 +28,12 @@ export default async function Home({ searchParams }: Props) {
         <div>
           <h1 className="text-3xl font-semibold text-slate-950">What&apos;s happening on campus</h1>
           <p className="mt-2 max-w-3xl text-base text-slate-600">
-            Browse UChicago events by keyword, date, and category, then switch to the map to see what is near you.
+            Browse UChicago events by keyword, date, and category. Use smart search, near me, or happening now to discover faster.
           </p>
         </div>
         {!hasSupabaseConfig() ? (
           <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            Supabase env vars are missing. The UI is ready, but data ingestion and persistence are disabled until configured.
+            Supabase env vars are missing. Configure them to enable data ingestion and persistence.
           </div>
         ) : null}
       </section>
@@ -44,6 +42,7 @@ export default async function Home({ searchParams }: Props) {
 
       <EventExplorer
         events={events}
+        mapEvents={mapEvents}
         savedEventIds={Array.from(savedIds)}
         canSave={canSave}
         filters={filters}

@@ -20,11 +20,14 @@ export type Database = {
           location_text: string | null;
           latitude: number | null;
           longitude: number | null;
+          geocode_source: string | null;
           categories: string[];
           tags: string[];
           raw_payload: Json;
           source_updated_at: string | null;
           imported_at: string;
+          embedding?: number[] | null;
+          embed_hash?: string | null;
         };
         Insert: {
           id: string;
@@ -42,11 +45,14 @@ export type Database = {
           location_text?: string | null;
           latitude?: number | null;
           longitude?: number | null;
+          geocode_source?: string | null;
           categories?: string[];
           tags?: string[];
           raw_payload?: Json;
           source_updated_at?: string | null;
           imported_at?: string;
+          embedding?: number[] | null;
+          embed_hash?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["events"]["Insert"]>;
         Relationships: [];
@@ -73,5 +79,9 @@ export type Database = {
         ];
       };
     };
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
+    Enums: Record<string, never>;
+    CompositeTypes: Record<string, never>;
   };
 };

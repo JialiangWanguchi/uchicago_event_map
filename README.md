@@ -1,23 +1,24 @@
 # Campus Event Map
 
-Campus Event Map is a Next.js v1 implementation of the project described in `PROJECT_PROPOSAL.md`. It ingests public UChicago events, stores them in Supabase, renders a searchable list plus a Leaflet map, and lets signed-in users save events.
+A Next.js app that aggregates UChicago campus events into a searchable list and interactive map. Students can filter by time and category, use semantic search and “near me,” save events, and export calendars.
 
 ## Stack
 
-- Next.js App Router
+- Next.js 15 App Router
 - Tailwind CSS
-- Supabase
+- Supabase (PostgreSQL + pgvector)
 - Clerk
-- Leaflet + OpenStreetMap
+- Leaflet + OpenStreetMap + marker clustering
+- OpenAI (embeddings + chat)
 
-## What v1 includes
+## Features (v4)
 
-- Event ingestion endpoint for the UChicago Localist feed
-- Filterable event list
-- Interactive campus map
-- Event detail page
-- Saved events page
-- Supabase schema for `events` and `saved_events`
+- LiveWhale RSS ingestion with incremental embeddings
+- List + full-filter map with clustering and LIVE markers
+- Smart search, happening now, near me
+- AI assistant with event context on detail pages
+- Saved events, `.ics` export, Google Calendar links
+- Vercel Cron ingestion + Playwright smoke tests
 
 ## Setup
 
@@ -27,17 +28,9 @@ Campus Event Map is a Next.js v1 implementation of the project described in `PRO
    npm install
    ```
 
-2. Copy `.env.example` to `.env.local` and fill in:
+2. Copy `.env.example` to `.env.local` and configure Supabase, Clerk, `INGEST_SECRET`, `NOMINATIM_EMAIL`, and `OPENAI_API_KEY`.
 
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - `SUPABASE_SERVICE_ROLE_KEY`
-   - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
-   - `CLERK_SECRET_KEY`
-   - `INGEST_SECRET`
-   - `NOMINATIM_EMAIL` (recommended for fallback geocoding)
-
-3. Run the SQL in [supabase/schema.sql](/E:/desktop/dbs/project/supabase/schema.sql:1).
+3. Apply [supabase/schema.sql](supabase/schema.sql) in the Supabase SQL editor.
 
 4. Start the app:
 
@@ -45,14 +38,20 @@ Campus Event Map is a Next.js v1 implementation of the project described in `PRO
    npm run dev
    ```
 
-5. Trigger ingestion:
+5. Ingest events:
 
    ```bash
    curl -X POST http://localhost:3000/api/cron/ingest -H "x-ingest-secret: YOUR_SECRET"
    ```
 
-## Notes
+## Scripts
 
-- The app tolerates missing Clerk or Supabase env vars and renders setup warnings instead of crashing.
-- Location resolution uses a small campus building lookup first, then falls back to Nominatim, then campus center coordinates.
-- Saved events are enforced server-side with Clerk user IDs and the Supabase service role key.
+- `npm run dev` — development server
+- `npm run build` — production build
+- `npm run typecheck` — TypeScript check
+- `npm run test:e2e` — Playwright tests (starts dev server automatically)
+
+## Docs
+
+- [PROJECT_PROPOSAL.md](PROJECT_PROPOSAL.md) — original product spec
+- [V4_UPDATE.md](V4_UPDATE.md) — latest release notes

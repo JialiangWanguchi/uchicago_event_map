@@ -1,10 +1,10 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import type { EventRecord } from "@/types/event";
+import type { MapEventRecord } from "@/types/event";
 
 type Props = {
-  events: EventRecord[];
+  events: MapEventRecord[];
   selectedEventId?: string | null;
   onEventSelect?: (eventId: string) => void;
 };
