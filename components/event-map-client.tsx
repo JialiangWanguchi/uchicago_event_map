@@ -5,7 +5,8 @@ import L from "leaflet";
 import { useCallback, useEffect, useState } from "react";
 import { MapContainer, TileLayer } from "react-leaflet";
 import { CAMPUS_CENTER } from "@/lib/constants";
-import { getCategoryColor } from "@/lib/map-categories";
+import { getCategoryColor, MAP_ENDED_COLOR } from "@/lib/map-categories";
+import type { EventTimeStatus } from "@/lib/event-status";
 import { EventMapCluster } from "@/components/event-map-cluster";
 import { MapLegend } from "@/components/map-legend";
 import { MapUserLayer } from "@/components/map-user-layer";
@@ -42,22 +43,29 @@ export default function EventMapClient({
     return () => clearInterval(interval);
   }, []);
 
-  const createIcon = useCallback((categories: string[], isHappeningNow: boolean) => {
-    if (isHappeningNow) {
+  const createIcon = useCallback((categories: string[], status: EventTimeStatus, isSelected: boolean) => {
+    if (status === "live") {
+      const scale = isSelected ? "scale(1.15)" : "scale(1)";
       return new L.DivIcon({
-        html: `<div class="pulse-marker-wrapper"><div class="pulse-marker-ring"></div><div class="pulse-marker-dot"></div></div>`,
-        className: "",
-        iconSize: [24, 24],
-        iconAnchor: [12, 12]
+        html: `<div class="pulse-marker-wrapper" style="transform:${scale}"><div class="pulse-marker-ring"></div><div class="pulse-marker-dot"></div></div>`,
+        className: isSelected ? "map-marker-selected" : "",
+        iconSize: [28, 28],
+        iconAnchor: [14, 14]
       });
     }
 
-    const color = getCategoryColor(categories);
+    const color = status === "ended" ? MAP_ENDED_COLOR : getCategoryColor(categories);
+    const size = isSelected ? 20 : 16;
+    const anchor = size / 2;
+    const ring = isSelected
+      ? "box-shadow: 0 0 0 3px #fbbf24, 0 0 0 6px rgba(251, 191, 36, 0.45), 0 2px 6px rgba(0,0,0,0.35);"
+      : "box-shadow: 0 1px 3px rgba(0,0,0,0.3);";
+
     return new L.DivIcon({
-      html: `<div style="background-color: ${color}; width: 16px; height: 16px; border-radius: 50%; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.3);"></div>`,
-      className: "",
-      iconSize: [16, 16],
-      iconAnchor: [8, 8]
+      html: `<div style="background-color: ${color}; width: ${size}px; height: ${size}px; border-radius: 50%; border: 2px solid white; ${ring}"></div>`,
+      className: isSelected ? "map-marker-selected" : "",
+      iconSize: [size, size],
+      iconAnchor: [anchor, anchor]
     });
   }, []);
 
@@ -66,8 +74,8 @@ export default function EventMapClient({
       <div className="shrink-0 border-b border-slate-200 px-4 py-3">
         <h2 className="text-sm font-semibold text-slate-950">Campus map</h2>
         <p className="mt-1 text-sm text-slate-600">
-          Drag to pan, scroll to zoom. Markers split automatically when you zoom in.{" "}
-          {mappableEvents.length} events shown.
+          Drag to pan, scroll to zoom. Markers split automatically when you zoom in. {mappableEvents.length} events on
+          map.
           {userLocation ? " Your location is marked in blue." : ""}
         </p>
       </div>

@@ -1,6 +1,6 @@
 import { ARCHIVE_DAYS_AFTER_END, LIST_EVENTS_LIMIT } from "@/lib/constants";
 import { buildEmbeddingText, embeddingHash } from "@/lib/embed-text";
-import { sortEventsForDisplay } from "@/lib/event-status";
+import { getEventTimeStatus, sortEventsForDisplay } from "@/lib/event-status";
 import { filterByMaxDistance, haversineKm, sortByDistance } from "@/lib/geo-utils";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { rpcMatchEvents } from "@/lib/supabase/rpc";
@@ -17,38 +17,15 @@ function logDbError(context: string, error: unknown) {
   console.error(`[campus-event-map] ${context}:`, error);
 }
 
-function isLive(event: Pick<EventRecord, "start_at" | "end_at">, now = Date.now()) {
-  const startMs = new Date(event.start_at).getTime();
-  const endMs = event.end_at ? new Date(event.end_at).getTime() : startMs + 3600000;
-  return now >= startMs && now <= endMs;
-}
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function applyEventFilters(query: any, filters: EventFilters) {
-  const nowIso = new Date().toISOString();
-
-  if (filters.happeningNow) {
-    let q = query.lte("start_at", nowIso);
-    if (filters.dateTo) {
-      q = q.lte("start_at", `${filters.dateTo}T23:59:59`);
-    }
-    if (filters.q && !filters.semantic) {
-      const escaped = filters.q.replace(/[%_]/g, "");
-      q = q.or(`title.ilike.%${escaped}%,summary.ilike.%${escaped}%,venue_name.ilike.%${escaped}%`);
-    }
-    if (filters.category) {
-      q = q.overlaps("categories", [filters.category]);
-    }
-    return q;
-  }
-
   let q = query.gte("start_at", filters.dateFrom ?? new Date().toISOString().slice(0, 10));
 
   if (filters.dateTo) {
     q = q.lte("start_at", `${filters.dateTo}T23:59:59`);
   }
 
-  if (filters.q && !filters.semantic) {
+  if (filters.q) {
     const escaped = filters.q.replace(/[%_]/g, "");
     q = q.or(`title.ilike.%${escaped}%,summary.ilike.%${escaped}%,venue_name.ilike.%${escaped}%`);
   }
@@ -87,12 +64,7 @@ function applyNearMeFilters(events: EventRecord[], filters: EventFilters) {
 }
 
 function finalizeEventsList(events: EventRecord[], filters: EventFilters): EventRecord[] {
-  let result = events;
-  if (filters.happeningNow) {
-    result = result.filter((event) => isLive(event));
-  }
-  result = applyNearMeFilters(result, filters);
-  return sortEventsForDisplay(result);
+  return sortEventsForDisplay(applyNearMeFilters(events, filters));
 }
 
 function listResult(events: EventRecord[]): EventListResult {
@@ -112,25 +84,6 @@ export async function getEvents(filters: EventFilters = {}): Promise<EventListRe
   const client = await createServerSupabaseClient();
   if (!client) {
     return listResult([]);
-  }
-
-  if (filters.semantic && filters.q) {
-    const semantic = await searchEventsSemantic(filters.q, 200);
-    const ids = semantic.map((row) => row.id);
-    if (ids.length === 0) {
-      return listResult([]);
-    }
-
-    const { data, error } = await client.from("events").select("*").in("id", ids);
-    if (error) {
-      logDbError("getEvents.semantic", error);
-      return listResult([]);
-    }
-
-    const rows = (data ?? []) as EventRecord[];
-    const byId = new Map(rows.map((row) => [row.id, row]));
-    const ordered = ids.map((id) => byId.get(id)).filter(Boolean) as EventRecord[];
-    return listResult(finalizeEventsList(ordered, filters));
   }
 
   let query = client.from("events").select("*").order("start_at", { ascending: true }).limit(LIST_EVENTS_LIMIT);
@@ -173,14 +126,8 @@ export async function getMapEvents(filters: EventFilters = {}): Promise<MapEvent
 
   let events = (data ?? []) as MapEventRecord[];
 
-  if (filters.happeningNow) {
-    events = events.filter((event) => isLive(event));
-  }
-
-  if (filters.semantic && filters.q) {
-    const semantic = await searchEventsSemantic(filters.q, 200);
-    const allowed = new Set(semantic.map((row) => row.id));
-    events = events.filter((event) => allowed.has(event.id));
+  if (!filters.showEnded) {
+    events = events.filter((event) => getEventTimeStatus(event) !== "ended");
   }
 
   if (filters.nearLat != null && filters.nearLng != null) {

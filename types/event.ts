@@ -7,11 +7,11 @@ export type EventFilters = {
   category?: string;
   dateFrom?: string;
   dateTo?: string;
-  happeningNow?: boolean;
-  semantic?: boolean;
   nearLat?: number;
   nearLng?: number;
   maxDistanceKm?: number;
+  /** When true, include ended events on the map (default: hidden). */
+  showEnded?: boolean;
 };
 
 export type EventRecord = {

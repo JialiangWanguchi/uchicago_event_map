@@ -19,10 +19,9 @@ export function parseEventFilters(params: Record<string, string | string[] | und
     category: typeof params.category === "string" ? params.category : undefined,
     dateFrom: typeof params.dateFrom === "string" ? params.dateFrom : undefined,
     dateTo: typeof params.dateTo === "string" ? params.dateTo : undefined,
-    happeningNow: params.happeningNow === "1",
-    semantic: params.semantic === "1",
     nearLat,
     nearLng,
-    maxDistanceKm
+    maxDistanceKm,
+    showEnded: params.showEnded === "1"
   };
 }

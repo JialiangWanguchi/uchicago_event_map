@@ -32,6 +32,7 @@ export function EventExplorer({ events, mapEvents, savedEventIds, canSave, filte
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [centerOnUser, setCenterOnUser] = useState(false);
   const listScrollRef = useRef<HTMLDivElement>(null);
+  const scrollListOnSelectRef = useRef(false);
   const savedIds = useMemo(() => new Set(savedEventIds), [savedEventIds]);
   const [now, setNow] = useState(Date.now());
   const { userLocation, nearMeActive, nearMeRadiusKm, locationLoading, locationError } = useMapLocation();
@@ -57,7 +58,8 @@ export function EventExplorer({ events, mapEvents, savedEventIds, canSave, filte
   }, []);
 
   useEffect(() => {
-    if (!selectedEventId) return;
+    if (!selectedEventId || !scrollListOnSelectRef.current) return;
+    scrollListOnSelectRef.current = false;
 
     const timer = window.setTimeout(() => {
       const container = listScrollRef.current;
@@ -82,6 +84,16 @@ export function EventExplorer({ events, mapEvents, savedEventIds, canSave, filte
     }
   }, [nearMeActive, userLocation]);
 
+  function handleMapSelect(eventId: string) {
+    scrollListOnSelectRef.current = true;
+    setSelectedEventId(eventId);
+  }
+
+  function handleListSelect(eventId: string) {
+    scrollListOnSelectRef.current = false;
+    setSelectedEventId(eventId);
+  }
+
   function renderEvent(event: EventRecord) {
     return (
       <EventCard
@@ -90,7 +102,7 @@ export function EventExplorer({ events, mapEvents, savedEventIds, canSave, filte
         isSaved={savedIds.has(event.id)}
         canSave={canSave}
         selected={selectedEventId === event.id}
-        onSelect={() => setSelectedEventId(event.id)}
+        onSelect={() => handleListSelect(event.id)}
         distanceLabel={event.distance_km != null ? formatDistanceKm(event.distance_km) : undefined}
         endTimeUnknown={!event.end_at}
         now={now}
@@ -104,7 +116,7 @@ export function EventExplorer({ events, mapEvents, savedEventIds, canSave, filte
         <EventMap
           events={mapEvents}
           selectedEventId={selectedEventId}
-          onEventSelect={setSelectedEventId}
+          onEventSelect={handleMapSelect}
           userLocation={userLocation}
           nearMeActive={nearMeActive}
           nearMeRadiusKm={nearMeRadiusKm}
@@ -118,14 +130,16 @@ export function EventExplorer({ events, mapEvents, savedEventIds, canSave, filte
           <h2 className="text-lg font-semibold text-slate-950">Events</h2>
           <p className="text-sm text-slate-600">{total} matching events</p>
           {locationLoading ? (
-            <p className="mt-1 text-xs text-slate-500">Getting your location for the map…</p>
+            <p className="mt-1 text-xs text-slate-500">Getting your location for the map...</p>
           ) : locationError ? (
             <p className="mt-1 text-xs text-amber-700">Location unavailable: {locationError}</p>
           ) : userLocation ? (
             <p className="mt-1 text-xs text-slate-500">Your location is shown on the map (blue dot).</p>
           ) : null}
-          {filters.happeningNow ? (
-            <p className="mt-1 text-xs font-medium text-red-700">Showing live events only.</p>
+          {!filters.showEnded ? (
+            <p className="mt-1 text-xs text-slate-500">
+              Ended events are hidden on the map unless you enable them in filters.
+            </p>
           ) : null}
         </div>
 

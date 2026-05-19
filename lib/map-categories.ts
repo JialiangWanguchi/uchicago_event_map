@@ -8,6 +8,10 @@ export const MAP_CATEGORY_COLORS: Record<string, string> = {
   Workshop: "#eab308"
 };
 
+export const MAP_OTHER_COLOR = "#6366f1";
+
+export const MAP_ENDED_COLOR = "#64748b";
+
 export const MAP_LEGEND_ITEMS = [
   { label: "Academic", color: MAP_CATEGORY_COLORS.Academic },
   { label: "Arts", color: MAP_CATEGORY_COLORS.Arts },
@@ -16,8 +20,9 @@ export const MAP_LEGEND_ITEMS = [
   { label: "Career", color: MAP_CATEGORY_COLORS.Career },
   { label: "Community", color: MAP_CATEGORY_COLORS.Community },
   { label: "Workshop", color: MAP_CATEGORY_COLORS.Workshop },
+  { label: "Other", color: MAP_OTHER_COLOR },
   { label: "Live now", color: "#ef4444", pulse: true },
-  { label: "Other", color: "#64748b" }
+  { label: "Ended", color: MAP_ENDED_COLOR }
 ] as const;
 
 export const NEAR_ME_DEFAULT_KM = 1;
@@ -38,5 +43,5 @@ export function getCategoryColor(categories: string[]) {
       return MAP_CATEGORY_COLORS[category];
     }
   }
-  return "#64748b";
+  return MAP_OTHER_COLOR;
 }

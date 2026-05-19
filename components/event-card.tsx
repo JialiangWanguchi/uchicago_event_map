@@ -31,11 +31,29 @@ export function EventCard({
   const status = getEventTimeStatus(event, now);
   const countdown = status === "upcoming" ? formatCountdownToStart(event.start_at, now) : null;
 
+  function handleCardClick() {
+    onSelect?.();
+  }
+
   return (
     <article
       id={`event-card-${event.id}`}
+      role={onSelect ? "button" : undefined}
+      tabIndex={onSelect ? 0 : undefined}
+      onClick={onSelect ? handleCardClick : undefined}
+      onKeyDown={
+        onSelect
+          ? (event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                handleCardClick();
+              }
+            }
+          : undefined
+      }
       className={cn(
         "rounded-lg border p-5 shadow-panel transition",
+        onSelect && "cursor-pointer hover:border-slate-400",
         selected && "border-amber-400 bg-amber-100 ring-2 ring-amber-200",
         !selected &&
           status === "upcoming" &&
@@ -72,6 +90,7 @@ export function EventCard({
           <div>
             <Link
               href={`/events/${event.slug}`}
+              onClick={(e) => e.stopPropagation()}
               className={cn("text-xl font-semibold hover:text-brand-600", status === "ended" ? "text-slate-700" : "text-slate-950")}
             >
               {event.title}
@@ -79,7 +98,9 @@ export function EventCard({
             <p className="mt-2 text-sm">{formatEventDate(event.start_at, event.end_at)}</p>
           </div>
         </div>
-        <SaveButton eventId={event.id} initiallySaved={isSaved} enabled={canSave} />
+        <div onClick={(e) => e.stopPropagation()}>
+          <SaveButton eventId={event.id} initiallySaved={isSaved} enabled={canSave} />
+        </div>
       </div>
 
       {event.summary ? <p className="mt-4 text-sm leading-6">{event.summary}</p> : null}
@@ -98,15 +119,16 @@ export function EventCard({
             {event.tags[0]}
           </span>
         ) : null}
-        <a href={event.source_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-brand-600 hover:text-brand-700">
+        <a
+          href={event.source_url}
+          target="_blank"
+          rel="noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="inline-flex items-center gap-1 text-brand-600 hover:text-brand-700"
+        >
           Original listing
           <ArrowUpRight className="h-4 w-4" />
         </a>
-        {onSelect ? (
-          <button type="button" onClick={onSelect} className="text-sm font-medium underline-offset-2 hover:underline">
-            Show on map
-          </button>
-        ) : null}
       </div>
     </article>
   );

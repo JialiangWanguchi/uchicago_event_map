@@ -7,6 +7,7 @@ import "leaflet.markercluster";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import { MAP_CLUSTER_DISABLE_ZOOM } from "@/lib/map-categories";
+import { getEventTimeStatus, type EventTimeStatus } from "@/lib/event-status";
 import { formatEventDate } from "@/lib/utils";
 import type { MapEventRecord } from "@/types/event";
 
@@ -15,7 +16,7 @@ type MarkerOptions = {
   selectedEventId?: string | null;
   onEventSelect?: (eventId: string) => void;
   now: number;
-  createIcon: (categories: string[], isHappeningNow: boolean) => L.DivIcon;
+  createIcon: (categories: string[], status: EventTimeStatus, isSelected: boolean) => L.DivIcon;
 };
 
 export function EventMapCluster({ events, selectedEventId, onEventSelect, now, createIcon }: MarkerOptions) {
@@ -42,21 +43,20 @@ export function EventMapCluster({ events, selectedEventId, onEventSelect, now, c
     markersByIdRef.current.clear();
 
     for (const event of events) {
-      const startMs = new Date(event.start_at).getTime();
-      const endMs = event.end_at ? new Date(event.end_at).getTime() : startMs + 3600000;
-      const isHappeningNow = now >= startMs && now <= endMs;
-      const icon = createIcon(event.categories, isHappeningNow);
+      const status = getEventTimeStatus(event, now);
+      const isSelected = selectedEventId === event.id;
+      const icon = createIcon(event.categories, status, isSelected);
       const location = event.location_text ?? event.venue_name ?? "Location TBD";
 
       const marker = L.marker([event.latitude!, event.longitude!], {
         icon,
-        zIndexOffset: isHappeningNow ? 1000 : selectedEventId === event.id ? 500 : 0
+        zIndexOffset: isSelected ? 2000 : status === "live" ? 1000 : status === "upcoming" ? 100 : 0
       });
 
       marker.bindPopup(
         [
           '<div class="space-y-2">',
-          `<p class="text-sm font-semibold text-slate-950">${isHappeningNow ? '<span class="text-red-500 font-bold">LIVE:</span> ' : ""}${event.title}</p>`,
+          `<p class="text-sm font-semibold text-slate-950">${status === "live" ? '<span class="text-red-500 font-bold">LIVE:</span> ' : ""}${event.title}</p>`,
           `<p class="text-xs text-slate-600">${formatEventDate(event.start_at, event.end_at)}</p>`,
           `<p class="text-xs text-slate-600">${location}</p>`,
           `<a href="/events/${event.slug}" class="text-xs font-medium text-brand-600">View details</a>`,
@@ -93,11 +93,12 @@ export function EventMapCluster({ events, selectedEventId, onEventSelect, now, c
     const selected = events.find((event) => event.id === selectedEventId);
     if (!selected?.latitude || !selected.longitude) return;
 
-    map.panTo([selected.latitude, selected.longitude], { animate: true });
+    const targetZoom = Math.max(map.getZoom(), MAP_CLUSTER_DISABLE_ZOOM);
+    map.flyTo([selected.latitude, selected.longitude], targetZoom, { animate: true, duration: 0.45 });
 
     const marker = markersByIdRef.current.get(selectedEventId);
     if (marker) {
-      window.setTimeout(() => marker.openPopup(), 250);
+      window.setTimeout(() => marker.openPopup(), 400);
     }
   }, [selectedEventId, events, map]);
 

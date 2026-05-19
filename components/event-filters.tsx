@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { CalendarDays, ChevronLeft, ChevronRight, LocateFixed, Search, Sparkles } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, LocateFixed, Search } from "lucide-react";
 import {
   addMonths,
   eachDayOfInterval,
@@ -176,24 +176,13 @@ export function EventFilters() {
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
-          onClick={() => updateParams({ happeningNow: searchParams.get("happeningNow") === "1" ? undefined : "1" })}
+          onClick={() => updateParams({ showEnded: searchParams.get("showEnded") === "1" ? undefined : "1" })}
           className={cn(
             "rounded-full px-3 py-1.5 text-sm font-medium",
-            searchParams.get("happeningNow") === "1" ? "bg-red-500 text-white" : "bg-slate-100 text-slate-700"
+            searchParams.get("showEnded") === "1" ? "bg-slate-600 text-white" : "bg-slate-100 text-slate-700"
           )}
         >
-          Happening now
-        </button>
-        <button
-          type="button"
-          onClick={() => updateParams({ semantic: searchParams.get("semantic") === "1" ? undefined : "1" })}
-          className={cn(
-            "inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-medium",
-            searchParams.get("semantic") === "1" ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-700"
-          )}
-        >
-          <Sparkles className="h-4 w-4" />
-          Smart search
+          Ended on map
         </button>
         <button
           type="button"

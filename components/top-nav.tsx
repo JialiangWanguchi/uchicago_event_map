@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CalendarDays, MapPinned, Radio } from "lucide-react";
+import { CalendarDays, MapPinned } from "lucide-react";
 import { endOfWeek, format, startOfWeek } from "date-fns";
 import { TopNavAuth } from "@/components/top-nav-auth";
 import { hasClerkConfig } from "@/lib/env";
@@ -13,8 +13,6 @@ export function TopNav() {
   const weekStart = format(startOfWeek(today, { weekStartsOn: 0 }), "yyyy-MM-dd");
   const weekEnd = format(endOfWeek(today, { weekStartsOn: 0 }), "yyyy-MM-dd");
   const thisWeekHref = `/?dateFrom=${weekStart}&dateTo=${weekEnd}`;
-  const liveHref = "/?happeningNow=1";
-
   return (
     <header className="border-b border-slate-200 bg-white/95 backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-4 py-4 sm:px-6 lg:px-8">
@@ -37,10 +35,6 @@ export function TopNav() {
         </nav>
 
         <div className="flex items-center gap-2 sm:gap-3">
-          <Link href={liveHref} className="hidden items-center gap-2 rounded-full border border-red-200 bg-red-50 px-3 py-1.5 text-sm text-red-700 transition hover:bg-red-100 sm:flex">
-            <Radio className="h-4 w-4" />
-            Live now
-          </Link>
           <Link href={thisWeekHref} className="hidden items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-600 transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700 md:flex">
             <CalendarDays className="h-4 w-4" />
             This week

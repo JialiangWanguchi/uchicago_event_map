@@ -28,7 +28,7 @@ export default async function Home({ searchParams }: Props) {
         <div>
           <h1 className="text-3xl font-semibold text-slate-950">What&apos;s happening on campus</h1>
           <p className="mt-2 max-w-3xl text-base text-slate-600">
-            Browse UChicago events by keyword, date, and category. Use smart search, near me, or happening now to discover faster.
+            Browse UChicago events by keyword, date, and category. Use near me and the map to discover what is on campus.
           </p>
         </div>
         {!hasSupabaseConfig() ? (
