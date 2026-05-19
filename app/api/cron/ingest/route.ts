@@ -7,8 +7,11 @@ function isAuthorized(request: Request) {
   const headerSecret = request.headers.get("x-ingest-secret");
   const authHeader = request.headers.get("authorization");
   const bearerSecret = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
-  const secret = env.ingestSecret;
-  return Boolean(secret && (headerSecret === secret || bearerSecret === secret));
+  const allowed = [env.ingestSecret, env.cronSecret].filter(Boolean);
+  if (allowed.length === 0) return false;
+  return Boolean(
+    (headerSecret && allowed.includes(headerSecret)) || (bearerSecret && allowed.includes(bearerSecret))
+  );
 }
 
 export async function POST(request: Request) {

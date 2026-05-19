@@ -18,7 +18,7 @@ A Next.js app that aggregates UChicago campus events into a searchable list and 
 - Smart search, happening now, near me
 - AI assistant with event context on detail pages
 - Saved events, `.ics` export, Google Calendar links
-- Vercel Cron ingestion + Playwright smoke tests
+- Daily Vercel Cron ingestion (Hobby-compatible) + Playwright smoke tests
 
 ## Setup
 
@@ -50,6 +50,12 @@ A Next.js app that aggregates UChicago campus events into a searchable list and 
 - `npm run build` — production build
 - `npm run typecheck` — TypeScript check
 - `npm run test:e2e` — Playwright tests (starts dev server automatically)
+
+## Vercel deployment
+
+- `vercel.json` runs ingest **once per day** at `0 6 * * *` (06:00 UTC), which satisfies the [Hobby cron limit](https://vercel.com/docs/cron-jobs/usage-and-pricing) (max one run per day).
+- In the Vercel project, set `INGEST_SECRET` (for manual `curl`) and optionally `CRON_SECRET` (Vercel sends it as `Authorization: Bearer` on cron requests). You can use the **same value** for both.
+- After the first deploy, trigger a manual ingest so data is available before the next scheduled run.
 
 ## Docs
 
