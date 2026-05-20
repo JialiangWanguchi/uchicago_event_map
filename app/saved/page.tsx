@@ -7,6 +7,7 @@ import { EventMap } from "@/components/event-map";
 import { getCurrentUserId } from "@/lib/auth";
 import { getRecommendedForUser, getSavedEvents } from "@/lib/data";
 import { hasSavedEventsConfig } from "@/lib/env";
+import { sortEventsForDisplay } from "@/lib/event-status";
 import { formatEventDate } from "@/lib/utils";
 import type { MapEventRecord } from "@/types/event";
 
@@ -37,7 +38,9 @@ export default async function SavedPage() {
     );
   }
 
-  const [events, recommended] = await Promise.all([getSavedEvents(userId), getRecommendedForUser(userId)]);
+  const [rawSaved, recommended] = await Promise.all([getSavedEvents(userId), getRecommendedForUser(userId)]);
+  // Mirror the explore page ordering: live (latest start first) → upcoming (soonest first) → ended (earliest end first).
+  const events = sortEventsForDisplay(rawSaved);
   const mapEvents: MapEventRecord[] = events
     .filter((event) => event.latitude != null && event.longitude != null)
     .map((event) => ({
