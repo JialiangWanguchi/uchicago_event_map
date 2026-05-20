@@ -75,8 +75,15 @@ function applyNearMeFilters(events: EventRecord[], filters: EventFilters) {
   return result;
 }
 
+/** True if an event has any user-visible location text (not just "Location TBD"). */
+function hasKnownLocation(event: Pick<EventRecord, "location_text" | "venue_name">) {
+  const text = (event.location_text ?? event.venue_name ?? "").trim();
+  return text.length > 0;
+}
+
 function finalizeEventsList(events: EventRecord[], filters: EventFilters): EventRecord[] {
-  return sortEventsForDisplay(applyNearMeFilters(events, filters));
+  const located = events.filter(hasKnownLocation);
+  return sortEventsForDisplay(applyNearMeFilters(located, filters));
 }
 
 function listResult(events: EventRecord[]): EventListResult {
@@ -137,6 +144,9 @@ export async function getMapEvents(filters: EventFilters = {}): Promise<MapEvent
   }
 
   let events = (data ?? []) as MapEventRecord[];
+
+  // Drop pinless and "Location TBD" entries from the map.
+  events = events.filter(hasKnownLocation);
 
   if (!filters.showEnded) {
     events = events.filter((event) => getEventTimeStatus(event) !== "ended");

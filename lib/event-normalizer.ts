@@ -31,8 +31,12 @@ export async function normalizeLocalistEvent(item: FeedItem) {
   const instanceId = `${item.id}-${startAt}`;
   const tags = Array.from(new Set([...item.audience, ...item.campus]));
 
-  const latitude = resolved.source === "none" ? null : resolved.lat;
-  const longitude = resolved.source === "none" ? null : resolved.lng;
+  // Only place a map pin if we have a confident location:
+  //   "upstream" = coords from the feed; "lookup" = matched a known campus building.
+  // "fallback" (no match) and "none" (virtual) get no pin so they don't pile on Main Quad.
+  const hasConfidentPin = resolved.source === "upstream" || resolved.source === "lookup";
+  const latitude = hasConfidentPin ? resolved.lat : null;
+  const longitude = hasConfidentPin ? resolved.lng : null;
 
   return {
     id: instanceId,
