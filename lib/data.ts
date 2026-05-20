@@ -334,9 +334,25 @@ export async function ingestEvents(options: { withEmbeddings?: boolean } = {}) {
     }
   }
 
-  const { error } = await client
-    .from("events")
-    .upsert(normalized as Database["public"]["Tables"]["events"]["Insert"][], { onConflict: "id" });
+  // Strip columns that might not exist in older Supabase schemas (geocode_source, embedding,
+  // embed_hash were added by later migrations). Retry without them if the first upsert fails.
+  const fullPayload = normalized as Database["public"]["Tables"]["events"]["Insert"][];
+  let { error } = await client.from("events").upsert(fullPayload, { onConflict: "id" });
+
+  if (error && error.code === "PGRST204") {
+    const trimmedPayload = normalized.map((row) => {
+      const copy: Record<string, unknown> = { ...row };
+      delete copy.geocode_source;
+      delete copy.embedding;
+      delete copy.embed_hash;
+      return copy;
+    });
+    const retry = await client
+      .from("events")
+      .upsert(trimmedPayload as Database["public"]["Tables"]["events"]["Insert"][], { onConflict: "id" });
+    error = retry.error;
+  }
+
   if (error) {
     throw error;
   }
