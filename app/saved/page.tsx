@@ -7,9 +7,14 @@ import { EventMap } from "@/components/event-map";
 import { getCurrentUserId } from "@/lib/auth";
 import { getRecommendedForUser, getSavedEvents } from "@/lib/data";
 import { hasSavedEventsConfig } from "@/lib/env";
-import { sortEventsForDisplay } from "@/lib/event-status";
+import { getEventTimeStatus, sortEventsForDisplay } from "@/lib/event-status";
 import { formatEventDate } from "@/lib/utils";
-import type { MapEventRecord } from "@/types/event";
+import type { EventRecord, MapEventRecord } from "@/types/event";
+
+// Force dynamic rendering so saved-event ordering is computed per request and
+// never served from a stale build cache.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export default async function SavedPage() {
   const userId = await getCurrentUserId();
@@ -41,6 +46,16 @@ export default async function SavedPage() {
   const [rawSaved, recommended] = await Promise.all([getSavedEvents(userId), getRecommendedForUser(userId)]);
   // Mirror the explore page ordering: live (latest start first) → upcoming (soonest first) → ended (earliest end first).
   const events = sortEventsForDisplay(rawSaved);
+  const now = Date.now();
+  const live: EventRecord[] = [];
+  const upcoming: EventRecord[] = [];
+  const ended: EventRecord[] = [];
+  for (const event of events) {
+    const status = getEventTimeStatus(event, now);
+    if (status === "live") live.push(event);
+    else if (status === "upcoming") upcoming.push(event);
+    else ended.push(event);
+  }
   const mapEvents: MapEventRecord[] = events
     .filter((event) => event.latitude != null && event.longitude != null)
     .map((event) => ({
@@ -81,9 +96,40 @@ export default async function SavedPage() {
         </div>
       ) : null}
 
-      <div className="space-y-4">
+      <div className="space-y-6">
         {events.length ? (
-          events.map((event) => <EventCard key={event.id} event={event} isSaved canSave />)
+          <>
+            {live.length > 0 ? (
+              <section className="space-y-3">
+                <h2 className="border-b border-slate-200 pb-2 text-xs font-semibold uppercase tracking-wide text-red-700">
+                  Happening now ({live.length})
+                </h2>
+                {live.map((event) => (
+                  <EventCard key={event.id} event={event} isSaved canSave />
+                ))}
+              </section>
+            ) : null}
+            {upcoming.length > 0 ? (
+              <section className="space-y-3">
+                <h2 className="border-b border-slate-200 pb-2 text-xs font-semibold uppercase tracking-wide text-blue-700">
+                  Upcoming ({upcoming.length})
+                </h2>
+                {upcoming.map((event) => (
+                  <EventCard key={event.id} event={event} isSaved canSave />
+                ))}
+              </section>
+            ) : null}
+            {ended.length > 0 ? (
+              <section className="space-y-3">
+                <h2 className="border-b border-slate-200 pb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Ended ({ended.length})
+                </h2>
+                {ended.map((event) => (
+                  <EventCard key={event.id} event={event} isSaved canSave />
+                ))}
+              </section>
+            ) : null}
+          </>
         ) : (
           <EmptyState title="No saved events yet" description="Browse events and bookmark the ones you want to keep." />
         )}
