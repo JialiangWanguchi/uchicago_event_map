@@ -70,7 +70,7 @@ export default function EventMapClient({
   }, []);
 
   return (
-    <div className={cn("flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-panel", className)}>
+    <div className={cn("isolate flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-panel relative z-0", className)}>
       <div className="shrink-0 border-b border-slate-200 px-4 py-3">
         <h2 className="text-sm font-semibold text-slate-950">Campus map</h2>
         <p className="mt-1 text-sm text-slate-600">
@@ -79,7 +79,7 @@ export default function EventMapClient({
           {userLocation ? " Your location is marked in blue." : ""}
         </p>
       </div>
-      <div className="relative min-h-0 flex-1">
+      <div className="relative min-h-0 flex-1 isolate">
         <MapContainer
           center={mapCenter}
           zoom={15}

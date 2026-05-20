@@ -135,7 +135,7 @@ export function EventFilters() {
   }
 
   return (
-    <section className="relative z-[100] rounded-lg border border-slate-200 bg-white p-4 shadow-panel space-y-4">
+    <section className="relative z-[1000] rounded-lg border border-slate-200 bg-white p-4 shadow-panel space-y-4">
       <div className="grid items-end gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_minmax(0,1.2fr)_minmax(0,1fr)]">
         <label>
           <div className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">Search</div>

@@ -19,9 +19,19 @@ function logDbError(context: string, error: unknown) {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function applyEventFilters(query: any, filters: EventFilters) {
-  // Default look-back: 3 days so currently-live events that started before "today" are included.
-  const defaultFrom = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-  let q = query.gte("start_at", filters.dateFrom ?? defaultFrom);
+  let q = query;
+
+  if (filters.dateFrom) {
+    // User explicitly set a start date; respect it.
+    q = q.gte("start_at", filters.dateFrom);
+  } else {
+    // No user filter: include anything still live or upcoming (end_at >= now), plus events
+    // that ended within the last 3 days for the "Ended" section. The OR ensures we never
+    // drop a multi-day live event whose start_at is in the past.
+    const nowIso = new Date().toISOString();
+    const threeDaysAgoIso = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+    q = q.or(`end_at.gte.${nowIso},and(end_at.is.null,start_at.gte.${threeDaysAgoIso}),end_at.gte.${threeDaysAgoIso}`);
+  }
 
   if (filters.dateTo) {
     q = q.lte("start_at", `${filters.dateTo}T23:59:59`);
