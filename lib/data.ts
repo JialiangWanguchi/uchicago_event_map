@@ -290,12 +290,11 @@ export async function archiveStaleEvents() {
   return { deleted: data?.length ?? 0 };
 }
 
-export async function ingestEvents() {
+export async function ingestEvents(options: { withEmbeddings?: boolean } = {}) {
   if (!hasSupabaseAdminConfig()) {
     throw new Error("Missing Supabase admin configuration.");
   }
 
-  const { generateEmbedding } = await import("@/lib/ai");
   const client = createAdminSupabaseClient();
   const feedEvents = await fetchAllLocalistEvents();
   const normalized = [];
@@ -304,30 +303,35 @@ export async function ingestEvents() {
     normalized.push(await normalizeLocalistEvent(item));
   }
 
-  const existingHashes = new Map<string, string | null>();
-  const ids = normalized.map((event) => event.id);
+  if (normalized.length === 0) {
+    return { imported: 0, archived: 0, embedded: 0 };
+  }
 
-  if (ids.length > 0) {
+  // Optionally generate embeddings for events whose content hash changed. Disabled by default
+  // because OpenAI calls add ~500ms each and can blow past Vercel Hobby's 60s function limit.
+  let embedded = 0;
+  if (options.withEmbeddings) {
+    const { generateEmbedding } = await import("@/lib/ai");
+    const ids = normalized.map((event) => event.id);
+    const existingHashes = new Map<string, string | null>();
+
     const { data: existing } = await client.from("events").select("id, embed_hash").in("id", ids);
     for (const row of existing ?? []) {
       existingHashes.set(row.id, row.embed_hash ?? null);
     }
-  }
 
-  for (const eventRecord of normalized) {
-    const textToEmbed = buildEmbeddingText(eventRecord);
-    const hash = embeddingHash(textToEmbed);
+    for (const eventRecord of normalized) {
+      const textToEmbed = buildEmbeddingText(eventRecord);
+      const hash = embeddingHash(textToEmbed);
 
-    if (existingHashes.get(eventRecord.id) !== hash) {
-      const embedding = await generateEmbedding(textToEmbed);
-      if (embedding) {
-        Object.assign(eventRecord, { embedding, embed_hash: hash });
+      if (existingHashes.get(eventRecord.id) !== hash) {
+        const embedding = await generateEmbedding(textToEmbed);
+        if (embedding) {
+          Object.assign(eventRecord, { embedding, embed_hash: hash });
+          embedded += 1;
+        }
       }
     }
-  }
-
-  if (normalized.length === 0) {
-    return { imported: 0, archived: 0 };
   }
 
   const { error } = await client
@@ -338,7 +342,7 @@ export async function ingestEvents() {
   }
 
   const archived = await archiveStaleEvents();
-  return { imported: normalized.length, archived: archived.deleted };
+  return { imported: normalized.length, archived: archived.deleted, embedded };
 }
 
 export async function getSimilarEvents(eventId: string, count = 3): Promise<SemanticSearchResult[]> {

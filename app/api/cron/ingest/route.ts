@@ -3,6 +3,9 @@ import { NextResponse } from "next/server";
 import { ingestEvents } from "@/lib/data";
 import { env } from "@/lib/env";
 
+export const maxDuration = 60;
+export const dynamic = "force-dynamic";
+
 function isAuthorized(request: Request) {
   const headerSecret = request.headers.get("x-ingest-secret");
   const authHeader = request.headers.get("authorization");
@@ -20,7 +23,9 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await ingestEvents();
+    const url = new URL(request.url);
+    const withEmbeddings = url.searchParams.get("embeddings") === "1";
+    const result = await ingestEvents({ withEmbeddings });
     revalidatePath("/");
     revalidatePath("/saved");
     return NextResponse.json(result);
