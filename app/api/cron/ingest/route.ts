@@ -30,10 +30,11 @@ export async function POST(request: Request) {
     revalidatePath("/saved");
     return NextResponse.json(result);
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unknown ingestion error" },
-      { status: 500 }
-    );
+    console.error("[campus-event-map] ingest failed:", error);
+    const message =
+      error instanceof Error ? `${error.name}: ${error.message}` : JSON.stringify(error);
+    const stack = error instanceof Error ? error.stack : undefined;
+    return NextResponse.json({ error: message, stack }, { status: 500 });
   }
 }
 
