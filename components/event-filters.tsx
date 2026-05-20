@@ -64,7 +64,7 @@ function CalendarField({ label, name, value, onChange }: CalendarFieldProps) {
       </button>
 
       {isOpen ? (
-        <div className="absolute left-0 top-[calc(100%+0.5rem)] z-20 w-[18rem] rounded-xl border border-slate-200 bg-white p-4 shadow-2xl">
+        <div className="absolute left-0 top-[calc(100%+0.5rem)] z-[9999] w-[18rem] rounded-xl border border-slate-200 bg-white p-4 shadow-2xl">
           <div className="mb-3 flex items-center justify-between">
             <button type="button" aria-label="Previous month" onClick={() => setVisibleMonth((month) => subMonths(month, 1))} className="rounded-md p-2 hover:bg-slate-100">
               <ChevronLeft className="h-4 w-4" />
@@ -135,7 +135,7 @@ export function EventFilters() {
   }
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-panel space-y-4">
+    <section className="relative z-[100] rounded-lg border border-slate-200 bg-white p-4 shadow-panel space-y-4">
       <div className="grid items-end gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_minmax(0,1.2fr)_minmax(0,1fr)]">
         <label>
           <div className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">Search</div>

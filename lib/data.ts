@@ -19,7 +19,9 @@ function logDbError(context: string, error: unknown) {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function applyEventFilters(query: any, filters: EventFilters) {
-  let q = query.gte("start_at", filters.dateFrom ?? new Date().toISOString().slice(0, 10));
+  // Default look-back: 3 days so currently-live events that started before "today" are included.
+  const defaultFrom = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  let q = query.gte("start_at", filters.dateFrom ?? defaultFrom);
 
   if (filters.dateTo) {
     q = q.lte("start_at", `${filters.dateTo}T23:59:59`);
