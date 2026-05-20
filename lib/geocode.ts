@@ -26,7 +26,8 @@ async function waitForNominatimSlot() {
 export async function resolveCoordinates(
   venue?: string | null,
   address?: string | null,
-  upstream?: { lat: number; lng: number } | null
+  upstream?: { lat: number; lng: number } | null,
+  options: { enableRemoteGeocoder?: boolean } = {}
 ): Promise<Coordinates> {
   if (isVirtualLocation(venue) || isVirtualLocation(address)) {
     return { lat: 0, lng: 0, source: "none" };
@@ -47,12 +48,15 @@ export async function resolveCoordinates(
     }
   }
 
-  const query = [venue, address, "University of Chicago campus"].filter(Boolean).join(", ");
-
-  if (query) {
-    const geocoded = await geocodeWithNominatim(query);
-    if (geocoded) {
-      return { ...geocoded, source: "geocoder" };
+  // Remote Nominatim is rate-limited to 1 req/sec by policy and balloons ingest past Vercel's
+  // function timeout. Disabled by default; opt-in via flag for offline jobs.
+  if (options.enableRemoteGeocoder) {
+    const query = [venue, address, "University of Chicago campus"].filter(Boolean).join(", ");
+    if (query) {
+      const geocoded = await geocodeWithNominatim(query);
+      if (geocoded) {
+        return { ...geocoded, source: "geocoder" };
+      }
     }
   }
 
